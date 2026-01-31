@@ -1,0 +1,185 @@
+﻿@using DocumentFormat.OpenXml.Spreadsheet
+@using reportmangerv2.Enums
+@using reportmangerv2.ViewModels
+@model ExecuteReportViewModel
+
+<style>
+/* Card constrained to viewport and scrolls when needed */
+.execute-report-card { border: none; border-radius: 12px; display: flex; flex-direction: column; max-height: 90vh; }
+.execute-report-card .card-header { background: linear-gradient(90deg,#fff 0,#f8fafc 100%); border-bottom: none; }
+.execute-report-card .form-text { font-size: .85rem; }
+
+/* Card body is a column that scrolls internally; footer stays visible */
+.execute-report-card .card-body { overflow: hidden; flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+
+/* Parameters area stays above and scrolls if tall */
+.execute-report-card .execute-params { overflow: auto; max-height: 40vh; min-height: 0; padding: 1rem; }
+
+/* Previous executions area inside the card is removed (table moved below the card) */
+.execute-report-card .execute-previous { display: none; }
+
+/* Executions table placed under the card */
+.executions-under-card { margin-top: .5rem; max-height: 50vh; overflow: auto; padding: 1rem; background: #fff; border: 1px solid rgba(0,0,0,.05); border-radius: .5rem; }
+.executions-under-card .table-responsive-md { height: 100%; min-height: 0; overflow: auto; }
+.executions-under-card table { margin-bottom: 0; }
+
+/* Footer */
+.execute-report-card .card-footer { border-top: 1px solid rgba(0,0,0,.05); background: #fff; }
+
+/* Keep the table header visible while scrolling */
+.executions-under-card thead th { position: sticky; top: 0; z-index: 2; background: var(--bs-table-bg, #f8fafc); }
+</style>
+
+<div class="card shadow-sm mb-3 execute-report-card" id="executeReportCard-@Model.Id">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div>
+      <h5 class="mb-0">@Model.Name</h5>
+      @if(!string.IsNullOrEmpty(Model.Description)) { <small class="text-muted">@Model.Description</small> }
+    </div>
+    <div>
+      <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-dismiss="modal" aria-label="Close">✕</button>
+    </div>
+  </div>
+
+  <!-- Scrollable content area: parameters (top) and previous executions (bottom) -->
+  <div class="card-body p-0 d-flex flex-column">
+    <div class="execute-params p-3" id="executeParams-@Model.Id">
+      <form id="executeReportForm-@Model.Id" method="post" action="@Url.Action("Execute","Home")" class="needs-validation" novalidate>
+        <input type="hidden" name="Id" value="@Model.Id" />
+        <div class="row g-3">
+          @for (int i=0;i<Model.Parameters.Count;i++) {
+           var p = Model.Parameters[i];
+           <div class="col-md-6">
+
+             <label class="form-label">@(!string.IsNullOrEmpty(p.DisplayName)?p.DisplayName:p.Name)</label>
+             @switch(Model.Parameters[i].ViewControl ){
+              case ViewControl.TextBox:
+                  <input class="form-control" name="Parameters[@i].Value" value="@p.Value" />
+                  break;
+              case ViewControl.Date:
+                  <input class="form-control" type="date" name="Parameters[@i].Value" value="@p.Value" />
+                  break;
+              case ViewControl.CheckBox:
+                      <input class="form-control" type="checkbox" name="Parameters[@i].Value" value="@p.Value" />
+                      break;
+              case ViewControl.Select:
+                  <select class="form-select" name="Parameters[@i].Value"  asp-items="@p.Value.Split(';').Select(c=> new SelectListItem{Value=c.Split(",")[0],Text=c.Split("'")[1]})" > </select>
+                  break;
+              default:
+                  break;
+             }
+             
+             <input type="hidden" name="Parameters[@i].Name" value="@p.Name" />
+             @if(!string.IsNullOrEmpty(p.Description)) { <small class="form-text text-muted">@p.Description</small> }
+           </div>
+          }
+        </div>
+      </form>
+
+      <div class="mt-3" id="executeResult-@Model.Id" style="display:none;">
+        <div class="alert alert-info" role="alert"></div>
+      </div>
+    </div>
+
+    <!-- Previous executions moved below the card (now placed under the card) -->
+    <div class="execute-previous-placeholder d-none" aria-hidden="true"></div> 
+
+  <div class="card-footer bg-white d-flex align-items-center justify-content-between">
+    <div>
+      <button type="submit" form="executeReportForm-@Model.Id" class="btn btn-primary" id="executeBtn-@Model.Id">Execute</button>
+      <button type="button" class="btn btn-outline-secondary ms-2" data-bs-dismiss="modal">Cancel</button>
+    </div>
+    <div id="executeStatus-@Model.Id" class="text-end"></div>
+  </div>
+</div>
+
+<!-- Previous executions table (under the card) -->
+<div id="ReportExecutions" class="executions-under-card">
+  <div class="table-responsive-md h-100">
+    <table class="table table-hover align-middle small">
+      <thead class="table-light">
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Status</th>
+          <th scope="col">User</th>
+          <th scope="col">Duration</th>
+          <th scope="col">Result</th>
+          <th scope="col" class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (Model.Executions == null || !Model.Executions.Any()) {
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">No previous executions found for this report.</td>
+          </tr>
+        } else {
+          foreach (var exec in Model.Executions) {
+            <tr>
+              <td class="text-nowrap">@exec.ExecutionDate.ToString("yyyy-MM-dd HH:mm:ss")</td>
+              <td>
+                @switch(exec.Status){
+                  case "Succeeded":
+                    <span class="badge bg-success">@exec.Status</span>
+                    break;
+                  case "Failed":
+                    <span class="badge bg-danger">@exec.Status</span>
+                    break;
+                  case "Running":
+                  case "Pending":
+                    <span class="badge bg-warning text-dark">@exec.Status</span>
+                    break;
+                  default:
+                    <span class="badge bg-secondary">@exec.Status</span>
+                    break;
+                }
+              </td>
+              <td>@(string.IsNullOrEmpty(exec.User)?"-":exec.User)</td>
+              <td>@(exec.Duration.TotalSeconds > 0 ? String.Format("{0}s", (int)exec.Duration.TotalSeconds) : "-")</td>
+              <td>@(string.IsNullOrEmpty(exec.ResultFilePath) ? "-" : System.IO.Path.GetFileName(exec.ResultFilePath))</td>
+              <td class="text-end">
+                @if (!string.IsNullOrEmpty(exec.ResultFilePath)) {
+                  <a class="btn btn-sm btn-outline-primary" href="@Url.Action("DownloadExecutionResult","Report", new { id = exec.Id })">Download</a>
+                } else {
+                  <button class="btn btn-sm btn-outline-secondary" disabled>—</button>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script> 
+(function(){
+  var form = $("#executeReportForm-@Model.Id");
+  form.on("submit", function(e){
+    e.preventDefault();
+    var $btn = $("#executeBtn-@Model.Id");
+    var $status = $("#executeStatus-@Model.Id");
+    var $result = $("#executeResult-@Model.Id");
+    $status.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Running...');
+    $btn.prop("disabled", true);
+    $.ajax({
+      url: form.attr("action"),
+      method: "POST",
+     
+      data: form.serialize(),
+      success: function(resp){
+         $status.html('<span class="text-success">Started</span>');
+         $result.show().find(".alert").removeClass("alert-danger").addClass("alert-success").text("Execution started. Execution ID: " + (resp.executionId || "n/a"));
+      },
+      error: function(xhr){
+         var msg = "Failed to start execution";
+         try { msg = xhr.responseJSON?.error || xhr.responseText || msg; } catch(e){}
+         $status.html('<span class="text-danger">Failed</span>');
+         $result.show().find(".alert").removeClass("alert-success").addClass("alert-danger").text(msg);
+      },
+      complete: function(){
+         $btn.prop("disabled", false);
+      }
+    });
+  });
+})();
+</script>

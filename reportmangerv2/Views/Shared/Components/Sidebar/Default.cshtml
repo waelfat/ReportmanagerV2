@@ -1,0 +1,14 @@
+﻿@using reportmangerv2.Components
+@model IList<CategoryVM>
+@{
+    ViewData["Title"] = "Categories";
+}
+
+<nav class="sidebar bg-light vh-100 overflow-auto">
+    <ul class=" nav flex-column">
+        @foreach (var category in Model)
+        {
+            @await Html.PartialAsync("_Category", category)
+        }
+    </ul>
+</nav> 

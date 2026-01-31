@@ -1,0 +1,30 @@
+﻿@using reportmangerv2.Components
+@model CategoryVM
+@{
+    var hasChilren = Model.ChildCategories.Any() || Model.Reports.Any();
+}
+@if (hasChilren)
+{
+    <li class="ps-2">
+
+        <button class="btn btn-toggle d-inline-flex align-items-center rounded border-0 collapsed" data-bs-toggle="collapse" data-bs-target="#@Model.CategoryId" aria-expanded="false">
+            @Model.CategoryName
+        </button>
+
+
+        <div class="collapse" id="@Model.CategoryId">
+            <ul class="btn-toggle-nav d-flex flex-column list-unstyled fw-normal pb-1 small">
+                @foreach (var cat in Model.ChildCategories)
+                {
+                    @await Html.PartialAsync("_Category", cat);
+
+                }
+                @foreach (var report in Model.Reports)
+                {
+                    <li id="@report.ReportId" class="list-inline-item"><a href="#" data-report-id="@report.ReportId" class="load-report link-body-emphasis ps-2 text-decoration-none rounded">@report.ReportName</a></li>
+                }
+            </ul>
+        </div>
+    </li>
+
+}

@@ -1,0 +1,36 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="container-fluid my-4">
+    <div class="row">
+        <aside class="col-3 mb-3">
+            @await Component.InvokeAsync("Sidebar")
+        </aside>
+        <main class="col-6">
+            <div id="ReportContainer" class="card p-3">
+                <div class="text-center">
+                    <h1 class="display-4">Welcome</h1>
+                    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+                </div>
+                
+            </div>
+        </main>
+        <div class="col-3">
+            <div
+                class="card border-primary"
+            >
+            
+                <div class="card-body">
+                    <h4 class="card-title">Title</h4>
+                    <p class="card-text">Text</p>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/ExecuteReport.js"></script>
+} 
