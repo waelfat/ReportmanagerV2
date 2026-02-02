@@ -4,11 +4,163 @@
     ViewData["Title"] = "Categories";
 }
 
-<nav class="sidebar bg-light vh-100 overflow-auto">
-    <ul class=" nav flex-column">
-        @foreach (var category in Model)
-        {
-            @await Html.PartialAsync("_Category", category)
+<div class="sidebar-content h-100">
+    <div class="p-3">
+        <div class="input-group mb-3">
+            <span class="input-group-text bg-light border-end-0">
+                <i class="fas fa-search text-muted"></i>
+            </span>
+            <input type="text" class="form-control border-start-0" placeholder="Search reports..." id="reportSearch">
+        </div>
+    </div>
+    
+    <nav class="sidebar-nav px-3 pb-3" style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        <ul class="nav flex-column">
+            @foreach (var category in Model)
+            {
+                @await Html.PartialAsync("_Category", category)
+            }
+        </ul>
+    </nav>
+</div>
+
+<style>
+.sidebar-content {
+    background: #fff;
+}
+
+.sidebar-nav .nav-link {
+    color: #6c757d;
+    border-radius: 0.375rem;
+    margin-bottom: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.sidebar-nav .nav-link:hover {
+    background-color: #f8f9fa;
+    color: #495057;
+    transform: translateX(2px);
+}
+
+.sidebar-nav .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.sidebar-nav .btn-toggle {
+    background: none;
+    border: none;
+    color: #495057;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+    width: 100%;
+    text-align: left;
+}
+
+.sidebar-nav .btn-toggle:hover {
+    background-color: #e9ecef;
+    transform: translateX(2px);
+}
+
+.sidebar-nav .btn-toggle[aria-expanded="true"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.sidebar-nav .btn-toggle::before {
+    content: "\f0da";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-nav .btn-toggle[aria-expanded="true"]::before {
+    transform: rotate(90deg);
+}
+
+.sidebar-nav .btn-toggle-nav {
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.sidebar-nav .btn-toggle-nav .nav-link {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.sidebar-nav .load-report {
+    display: block;
+    padding: 0.375rem 0.75rem;
+    color: #6c757d;
+    text-decoration: none;
+    border-radius: 0.25rem;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+}
+
+.sidebar-nav .load-report:hover {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    transform: translateX(2px);
+}
+
+.sidebar-nav .load-report::before {
+    content: "\f15c";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 400;
+    margin-right: 0.5rem;
+    color: #1976d2;
+}
+
+/* Custom scrollbar */
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+</style>
+
+<script>
+// Search functionality
+document.getElementById('reportSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const reports = document.querySelectorAll('.load-report');
+    const categories = document.querySelectorAll('.btn-toggle');
+    
+    reports.forEach(report => {
+        const reportName = report.textContent.toLowerCase();
+        const listItem = report.closest('li');
+        if (reportName.includes(searchTerm)) {
+            listItem.style.display = 'block';
+        } else {
+            listItem.style.display = 'none';
         }
-    </ul>
-</nav> 
+    });
+    
+    // Show/hide categories based on visible reports
+    categories.forEach(category => {
+        const categoryContainer = category.closest('li');
+        const visibleReports = categoryContainer.querySelectorAll('.load-report:not([style*="display: none"])');
+        if (visibleReports.length > 0 || searchTerm === '') {
+            categoryContainer.style.display = 'block';
+        } else {
+            categoryContainer.style.display = 'none';
+        }
+    });
+});
+</script> 

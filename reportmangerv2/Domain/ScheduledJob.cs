@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using reportmangerv2.Data;
+using reportmangerv2.Enums;
 
 namespace reportmangerv2.Domain;
 
@@ -21,6 +22,10 @@ public class ScheduledJob
     public  ApplicationUser CreatedBy { get; set; }
     public List<ScheduledJobParameter> Parameters { get; set; } = new List<ScheduledJobParameter>();
     public List<Execution> Executions { get; set; } = new List<Execution>();
+    [ForeignKey("SchemaId")]
+    public string SchemaId { get; set; }
+    public Schema Schema { get; set; }
+    public ExecutionStatus JobStatus { get; set; }
 
 
   

@@ -1,6 +1,8 @@
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Oracle.ManagedDataAccess.Client;
+using ReportManager.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 
@@ -37,7 +39,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
         options.AccessDeniedPath = "/Auth/AccessDenied";
         options.SlidingExpiration = true;
     });
-
+builder.Services.AddHostedService<ExecutionService>();
+builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
+builder.Services.AddSingleton<CurrentActiveExecutionsService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

@@ -114,6 +114,7 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
         v=>JsonSerializer.Deserialize<List<ScheduledJobParameter>>(v, jsonOptions)?? new List<ScheduledJobParameter>()
        )
        .Metadata.SetValueComparer(scheduledJobComparer);
+       entity.Property(s=>s.JobStatus).HasConversion<string>();
        });
        //build hierarchy for Category
        modelBuilder.Entity<Category>(entity =>
@@ -136,6 +137,7 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
            entity.HasIndex(s => s.Name)
                  .IsUnique();
        });
+
     
     }
     
