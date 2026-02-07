@@ -46,6 +46,7 @@ builder.Services.AddHostedService<ExecutionService>();
 builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
 builder.Services.AddScoped<IExecutionNotificationService, ExecutionNotificationService>();
+builder.Services.AddHostedService<ScheduledJobsExecuterService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

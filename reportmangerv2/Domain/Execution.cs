@@ -10,7 +10,7 @@ public class Execution
     [Key]
     public string Id { get; set; } = Guid.NewGuid().ToString();
     [ForeignKey("ReportId")]
-    public string ReportId { get; set; } = null!;
+    public string? ReportId { get; set; } = null!;
     public Report Report { get; set; } = null!;
     public DateTime ExecutionDate { get; set; } = DateTime.Now;
     public ExecutionType ExecutionType { get; set; }=ExecutionType.Report;

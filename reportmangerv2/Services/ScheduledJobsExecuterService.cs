@@ -77,7 +77,7 @@ public class ScheduledJobsExecuterService : BackgroundService
                     
                     var executeReportMessage=new ExecutionRequest {
                          Id = job.Id, UserId = job.CreatedById,ReportTitle=job.ProcedureName ,ExecutionId=execution.Id,
-                         SQLStatement=job.ProcedureName, Type="PROCEDURE",ConnectionString=job.Schema.ConnectionString};
+                         SQLStatement=job.ProcedureName, Type=ExecutionRequesType.StoredProcedure,ConnectionString=job.Schema.ConnectionString};
                          
                     
                     

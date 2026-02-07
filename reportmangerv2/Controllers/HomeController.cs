@@ -177,7 +177,7 @@ public class HomeController : Controller
 
                 SQLStatement = report.ReportQuery,
                 UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Anonymous",
-                Type = "SQLSTATEMENT",
+                Type = ExecutionRequesType.SqlStatement,
 
                 ExecutionId = exec.Id
             });

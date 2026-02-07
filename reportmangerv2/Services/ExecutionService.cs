@@ -40,9 +40,22 @@ public class ExecutionService : BackgroundService
         {
             try
             {
-              //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
-                if (message.Type=="SQLSTATEMENT")await ProcessExecutions(message, stoppingToken);
-                if (message.Type=="PROCEDURE") await ProcessStoredProcedureExecutions(message, stoppingToken); 
+        //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
+                _logger.LogInformation($"Execution Type: {message.Type}");
+                switch (message.Type)
+                {
+                    case ExecutionRequesType.SqlStatement :
+                        await ProcessExecutions(message, stoppingToken);
+                        break;
+                        case ExecutionRequesType.StoredProcedure:
+                        await ProcessStoredProcedureExecutions(message, stoppingToken);
+                        break;
+                        default:
+                        _logger.LogWarning($"Unknown execution type: {message.Type}");
+                        throw new ArgumentOutOfRangeException(nameof(message.Type), message.Type, null);
+                }
+                // if (message.Type=="SQLSTATEMENT")await ProcessExecutions(message, stoppingToken);
+                // if (message.Type=="PROCEDURE") await ProcessStoredProcedureExecutions(message, stoppingToken); 
             }
             catch (OperationCanceledException)
             {
@@ -188,6 +201,7 @@ public class ExecutionService : BackgroundService
         var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Report");
         //  create uniue file name with date time and id
+        
         string fileName = $"{message.ReportTitle}-{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..5]}.xlsx";
         // string fileName = $"{message.ReportTitle}_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.xlsx";
         string filePath = Path.Combine(_webHostEnvironment.ContentRootPath, "Reports", fileName);
@@ -283,10 +297,12 @@ public class ExecutionService : BackgroundService
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                    var execution= await context.Executions.FirstOrDefaultAsync(e=>e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
                execution.ExecutionStatus = ExecutionStatus.Running;
-               executionParameters = execution.ExecutionParameters.Select(p=> new OracleParameter(p.Name, p.Direction)
+               executionParameters = execution.ExecutionParameters.Select(p=> new OracleParameter
                {
-                   Value = (object?)p.Value ?? DBNull.Value,
-
+                  Direction = p.Direction,
+                  Value =(object?) p.Value ?? DBNull.Value,
+                  ParameterName = p.Name,
+                  OracleDbType = p.Type, // p.Type must be OracleDbType Direction = p.Direction, // ParameterDirection Value = p.Value ?? DBNull.Value
                    
                }).ToArray();
            
@@ -294,7 +310,7 @@ public class ExecutionService : BackgroundService
                 await context.SaveChangesAsync(linkedTokenSource.Token);
                 executionId = execution.Id;
             }
-            await Task.Delay(TimeSpan.FromMinutes(2), executionCancellationTokenSource.Token); // Simulate some initial delay
+            await Task.Delay(TimeSpan.FromSeconds(2), executionCancellationTokenSource.Token); // Simulate some initial delay
           
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleCommand command = new OracleCommand(message.SQLStatement, connection);
@@ -351,7 +367,7 @@ public class ExecutionRequest
     public required string SQLStatement { get; set; }
     public required string ConnectionString { get; set; }
     public required string UserId { get; set; }
-    public required string Type { get; set; }="SQLSTATEMENT";
+    public required ExecutionRequesType Type { get; set; }=ExecutionRequesType.SqlStatement;
 
 
 
