@@ -11,7 +11,7 @@ public class ScheduledJob
     public string Id { get; set; }=Guid.NewGuid().ToString();
     [Required]
     public string ProcedureName { get; set; }
-    public string Description { get; set; }
+    public string? Description { get; set; }
     public string CronExpression { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -25,9 +25,18 @@ public class ScheduledJob
     [ForeignKey("SchemaId")]
     public string SchemaId { get; set; }
     public Schema Schema { get; set; }
-    public ExecutionStatus JobStatus { get; set; }
-
-
+    public ExecutionStatus JobStatus { get; set; }=ExecutionStatus.Pending;
+    public string? MessageBody {get;set;}
+    public string MessageSubject {get;set;}
+    public string SendToEmails
+    {
+        get;
+        set;
+    } = string.Empty; 
+    public string CCMails { 
+        get; 
+        set; 
+    } = string.Empty;
   
 
 }

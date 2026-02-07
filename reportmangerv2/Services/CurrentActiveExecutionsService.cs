@@ -12,9 +12,9 @@ public class CurrentActiveExecutionsService
         _activeExecutions = new ConcurrentDictionary<string, ExecutionInfo>();
     }
 
-    public void AddExecution(string ExecutionId,string reportId, string UserId, DateTime executionTime, CancellationTokenSource cancellationTokenSource)
+    public bool AddExecution(string ExecutionId,string reportId, string UserId, DateTime executionTime, CancellationTokenSource cancellationTokenSource)
     {
-        _activeExecutions.TryAdd(ExecutionId, new ExecutionInfo {  StartTime = executionTime, UserId = UserId, CancellationTokenSource = cancellationTokenSource, ReportId=reportId });
+      return  _activeExecutions.TryAdd(ExecutionId, new ExecutionInfo {  StartTime = executionTime, UserId = UserId, CancellationTokenSource = cancellationTokenSource, ReportId=reportId });
     }
 
     public bool IsExecutionActive(string ExecutionId)

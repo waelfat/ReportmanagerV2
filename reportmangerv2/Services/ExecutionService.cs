@@ -9,6 +9,7 @@ using Oracle.ManagedDataAccess.Types;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 using reportmangerv2.Enums;
+using reportmangerv2.Services;
 
 namespace ReportManager.Services;
 
@@ -75,20 +76,26 @@ public class ExecutionService : BackgroundService
 
                 // Process the report execution
                //load the executionparameters
-               var execution= await context.Executions.FirstOrDefaultAsync(e=>e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
+                var execution= await context.Executions.FirstOrDefaultAsync(e=>e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
                execution.ExecutionStatus = ExecutionStatus.Running;
+               //execution.ExecutionDate = DateTime.UtcNow; // Set actual start time
                //load exection in 
                executionParameters = execution.ExecutionParameters.Select(p=> new OracleParameter(p.Name, (object?)p.Value ?? DBNull.Value)).ToArray();
 
             
                 await context.SaveChangesAsync(linkedTokenSource.Token);
+                if (execution == null) throw new Exception("Execution not found");
                 executionId = execution.Id;
-                _currentActiveExecutionsService.AddExecution(message.ExecutionId, message.Id, message.UserId, execution.ExecutionDate, linkedTokenSource);
+                var added=_currentActiveExecutionsService.AddExecution(message.ExecutionId, message.Id, message.UserId, execution.ExecutionDate, linkedTokenSource);
+                if (!added)
+                {
+                    _logger.LogWarning("Execution already exists in CurrentActiveExecutionsService");
+                }
                // report = await context.Reports.FindAsync(message.ReportId);
                 _logger.LogInformation($"Started execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
 
             }
-            await Task.Delay(TimeSpan.FromSeconds(2), linkedTokenSource.Token); // Simulate some initial delay
+           // await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleDataReader reader = ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
 
@@ -104,15 +111,26 @@ public class ExecutionService : BackgroundService
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
                 var execution = await context.Executions.FindAsync(executionId);
                 if (execution != null)
                 {
                     execution.ExecutionStatus = ExecutionStatus.Completed;
                     execution.ResultFilePath = filePathFinal;
-                    execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
+                    execution.Duration = DateTime.Now - execution.ExecutionDate;
 
                     await context.SaveChangesAsync();
                     _currentActiveExecutionsService.RemoveExecution(executionId);
+                    
+                    // Send SignalR notification
+                    await notificationService.NotifyExecutionCompleted(
+                        executionId, 
+                        "Succeeded", 
+                        (int)execution.Duration.TotalSeconds, 
+                        !string.IsNullOrEmpty(filePathFinal),
+                        message.UserId
+                    );
+                    
                     _logger.LogInformation($"Completed execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
                 }
             }
@@ -132,16 +150,27 @@ public class ExecutionService : BackgroundService
                 using (var scope = _serviceScopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
                     var execution = await context.Executions.FirstOrDefaultAsync(e=>e.Id == executionId);
                     if (execution != null)
                     {
-                        execution.ExecutionStatus = ex is OperationCanceledException ? ExecutionStatus.Cancelled : ExecutionStatus.Failed;//  "Cancelled";
-                        execution.ExecutionDate = DateTime.UtcNow ;
+                        execution.ExecutionStatus = ex is OperationCanceledException ? ExecutionStatus.Cancelled : ExecutionStatus.Failed;
+                        execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
                         execution.ErrorMessage = ex is OperationCanceledException ? "Execution was cancelled by user." : "Execution failed.\n" + ex.Message;
                         execution.ResultFilePath = null;
 
                         await context.SaveChangesAsync();
                         _currentActiveExecutionsService.RemoveExecution(executionId);
+                        
+                        // Send SignalR notification
+                        await notificationService.NotifyExecutionCompleted(
+                            executionId, 
+                            ex is OperationCanceledException ? "Cancelled" : "Failed", 
+                            (int)execution.Duration.TotalSeconds, 
+                            false,
+                            message.UserId
+                        );
+                        
                         _logger.LogInformation($"Cancelled execution of report {message.Id} for user {message.UserId} with Execution ID {execution.Id}");
                     }
                 }
@@ -158,7 +187,9 @@ public class ExecutionService : BackgroundService
     {
         var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Report");
-        string fileName = $"{message.ReportTitle}_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.xlsx";
+        //  create uniue file name with date time and id
+        string fileName = $"{message.ReportTitle}-{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..5]}.xlsx";
+        // string fileName = $"{message.ReportTitle}_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.xlsx";
         string filePath = Path.Combine(_webHostEnvironment.ContentRootPath, "Reports", fileName);
         Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
 
@@ -263,7 +294,7 @@ public class ExecutionService : BackgroundService
                 await context.SaveChangesAsync(linkedTokenSource.Token);
                 executionId = execution.Id;
             }
-           // await Task.Delay(TimeSpan.FromMinutes(2), executionCancellationTokenSource.Token); // Simulate some initial delay
+            await Task.Delay(TimeSpan.FromMinutes(2), executionCancellationTokenSource.Token); // Simulate some initial delay
           
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleCommand command = new OracleCommand(message.SQLStatement, connection);

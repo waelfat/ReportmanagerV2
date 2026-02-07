@@ -1,163 +1,165 @@
-﻿@using DocumentFormat.OpenXml.Spreadsheet
+@using DocumentFormat.OpenXml.Spreadsheet
 @using reportmangerv2.Enums
 @using reportmangerv2.ViewModels
 @model ExecuteReportViewModel
 
 <style>
-:root {
-    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-    --border-radius: 0.75rem;
-}
+    :root {
+        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --success-gradient: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        --border-radius: 0.75rem;
+    }
 
-.execute-report-card {
-    border: none;
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    backdrop-filter: blur(10px);
-    background: rgba(255, 255, 255, 0.98);
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-}
+    .execute-report-card {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.98);
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
 
-.execute-report-card .card-header {
-    background: var(--primary-gradient);
-    color: white;
-    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
-    border: none;
-}
+    .execute-report-card .card-header {
+        background: var(--primary-gradient);
+        color: white;
+        border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+        border: none;
+    }
 
-.execute-report-card .card-body {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
+    .execute-report-card .card-body {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
 
-.execute-params {
-    overflow-y: auto;
-    max-height: 50vh;
-    padding: 1.5rem;
-}
+    .execute-params {
+        overflow-y: auto;
+        max-height: 50vh;
+        padding: 1.5rem;
+    }
 
-.form-control, .form-select {
-    border-radius: 0.5rem;
-    border: 1px solid #e0e6ed;
-    transition: all 0.3s ease;
-}
+    .form-control,
+    .form-select {
+        border-radius: 0.5rem;
+        border: 1px solid #e0e6ed;
+        transition: all 0.3s ease;
+    }
 
-.form-control:focus, .form-select:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-}
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
 
-.btn-primary {
-    background: var(--primary-gradient);
-    border: none;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
+    .btn-primary {
+        background: var(--primary-gradient);
+        border: none;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
 
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(102, 126, 234, 0.3);
-}
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(102, 126, 234, 0.3);
+    }
 
-.btn-outline-secondary {
-    border-radius: 0.5rem;
-    transition: all 0.3s ease;
-}
+    .btn-outline-secondary {
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+    }
 
-.executions-table {
-    margin-top: 1rem;
-    background: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--card-shadow);
-    max-height: 40vh;
-    overflow: hidden;
-}
+    .executions-table {
+        margin-top: 1rem;
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--card-shadow);
+        max-height: 40vh;
+        overflow: hidden;
+    }
 
-.executions-table .table-responsive {
-    max-height: 35vh;
-    overflow-y: auto;
-}
+    .executions-table .table-responsive {
+        max-height: 35vh;
+        overflow-y: auto;
+    }
 
-.executions-table thead th {
-    position: sticky;
-    top: 0;
-    background: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
-    font-weight: 600;
-    z-index: 10;
-}
+    .executions-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        z-index: 10;
+    }
 
-.badge {
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.375rem;
-}
+    .badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: 0.375rem;
+    }
 
-.alert {
-    border: none;
-    border-radius: 0.5rem;
-}
+    .alert {
+        border: none;
+        border-radius: 0.5rem;
+    }
 
-.spinner-border-sm {
-    width: 1rem;
-    height: 1rem;
-}
+    .spinner-border-sm {
+        width: 1rem;
+        height: 1rem;
+    }
 
-.parameter-group {
-    background: #f8f9fa;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-bottom: 1rem;
-    border-left: 4px solid #667eea;
-}
+    .parameter-group {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid #667eea;
+    }
 
-.close-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    border-radius: 50%;
-    width: 2rem;
-    height: 2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-}
+    .close-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        border-radius: 50%;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
 
-.close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
-}
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+    }
 
-/* Custom scrollbar */
-.execute-params::-webkit-scrollbar,
-.executions-table .table-responsive::-webkit-scrollbar {
-    width: 6px;
-}
+    /* Custom scrollbar */
+    .execute-params::-webkit-scrollbar,
+    .executions-table .table-responsive::-webkit-scrollbar {
+        width: 6px;
+    }
 
-.execute-params::-webkit-scrollbar-track,
-.executions-table .table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
+    .execute-params::-webkit-scrollbar-track,
+    .executions-table .table-responsive::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+    }
 
-.execute-params::-webkit-scrollbar-thumb,
-.executions-table .table-responsive::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
+    .execute-params::-webkit-scrollbar-thumb,
+    .executions-table .table-responsive::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 3px;
+    }
 
-.execute-params::-webkit-scrollbar-thumb:hover,
-.executions-table .table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
+    .execute-params::-webkit-scrollbar-thumb:hover,
+    .executions-table .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
 </style>
 
 <div class="execute-report-card card mb-4" id="executeReportCard-@Model.Id">
@@ -166,7 +168,8 @@
             <i class="fas fa-play-circle fs-4 me-3"></i>
             <div>
                 <h5 class="mb-0 fw-bold">@Model.Name</h5>
-                @if(!string.IsNullOrEmpty(Model.Description)) {
+                @if (!string.IsNullOrEmpty(Model.Description))
+                {
                     <small class="opacity-75">@Model.Description</small>
                 }
             </div>
@@ -178,40 +181,48 @@
 
     <div class="card-body p-0">
         <div class="execute-params" id="executeParams-@Model.Id">
-            <form id="executeReportForm-@Model.Id" method="post" action="@Url.Action("Execute","Home")" class="needs-validation" novalidate>
+            <form id="executeReportForm-@Model.Id" method="post" action="@Url.Action("Execute","Home")"
+                class="needs-validation" novalidate>
                 <input type="hidden" name="Id" value="@Model.Id" />
-                
-                @if (Model.Parameters.Any()) {
+
+                @if (Model.Parameters.Any())
+                {
                     <div class="parameter-group">
                         <h6 class="text-primary mb-3">
                             <i class="fas fa-cog me-2"></i>Report Parameters
                         </h6>
                         <div class="row g-3">
-                            @for (int i = 0; i < Model.Parameters.Count; i++) {
+                            @for (int i = 0; i < Model.Parameters.Count; i++)
+                            {
                                 var p = Model.Parameters[i];
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">
                                         @(!string.IsNullOrEmpty(p.DisplayName) ? p.DisplayName : p.Name)
-                                        @if (!string.IsNullOrEmpty(p.Description)) {
+                                        @if (!string.IsNullOrEmpty(p.Description))
+                                        {
                                             <i class="fas fa-info-circle text-muted ms-1" title="@p.Description"></i>
                                         }
                                     </label>
-                                    
-                                    @switch(Model.Parameters[i].ViewControl) {
+
+                                    @switch (Model.Parameters[i].ViewControl)
+                                    {
                                         case ViewControl.TextBox:
-                                            <input class="form-control" name="Parameters[@i].Value" value="@p.Value" placeholder="Enter @p.Name.ToLower()" />
+                                            <input class="form-control" name="Parameters[@i].Value" value="@p.Value"
+                                                placeholder="Enter @p.Name.ToLower()" />
                                             break;
                                         case ViewControl.Date:
                                             <input class="form-control" type="date" name="Parameters[@i].Value" value="@p.Value" />
                                             break;
                                         case ViewControl.CheckBox:
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="Parameters[@i].Value" value="@p.Value" />
+                                                <input class="form-check-input" type="checkbox" name="Parameters[@i].Value"
+                                                    value="@p.Value" />
                                                 <label class="form-check-label text-muted">Enable this option</label>
                                             </div>
                                             break;
                                         case ViewControl.Select:
-                                            <select class="form-select" name="Parameters[@i].Value" asp-items="@p.Value.Split(';').Select(c => new SelectListItem{Value=c.Split(',')[0], Text=c.Split(',').Length > 1 ? c.Split(',')[1] : c.Split(',')[0]})">
+                                            <select class="form-select" name="Parameters[@i].Value"
+                                                asp-items="@p.Value.Split(';').Select(c => new SelectListItem { Value = c.Split(',')[0], Text = c.Split(',').Length > 1 ? c.Split(',')[1] : c.Split(',')[0] })">
                                                 <option value="">Select an option...</option>
                                             </select>
                                             break;
@@ -219,16 +230,19 @@
                                             <input class="form-control" name="Parameters[@i].Value" value="@p.Value" />
                                             break;
                                     }
-                                    
+
                                     <input type="hidden" name="Parameters[@i].Name" value="@p.Name" />
-                                    @if(!string.IsNullOrEmpty(p.Description)) {
+                                    @if (!string.IsNullOrEmpty(p.Description))
+                                    {
                                         <div class="form-text text-muted small">@p.Description</div>
                                     }
                                 </div>
                             }
                         </div>
                     </div>
-                } else {
+                }
+                else
+                {
                     <div class="text-center py-4">
                         <i class="fas fa-info-circle text-muted fs-2 mb-3"></i>
                         <p class="text-muted">This report doesn't require any parameters.</p>
@@ -244,12 +258,11 @@
 
     <div class="card-footer bg-white d-flex align-items-center justify-content-between py-3">
         <div>
-            <button type="submit" form="executeReportForm-@Model.Id" class="btn btn-primary me-2" id="executeBtn-@Model.Id">
+            <button type="submit" form="executeReportForm-@Model.Id" class="btn btn-primary me-2"
+                id="executeBtn-@Model.Id">
                 <i class="fas fa-play me-2"></i>Execute Report
             </button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                <i class="fas fa-times me-2"></i>Cancel
-            </button>
+
         </div>
         <div id="executeStatus-@Model.Id" class="text-end"></div>
     </div>
@@ -269,27 +282,31 @@
                     <th scope="col"><i class="fas fa-clock me-1"></i>When</th>
                     <th scope="col"><i class="fas fa-info-circle me-1"></i>Status</th>
                     <th scope="col"><i class="fas fa-stopwatch me-1"></i>Duration</th>
-                    <th scope="col"><i class="fas fa-file me-1"></i>Result</th>
                     <th scope="col" class="text-end"><i class="fas fa-cog me-1"></i>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @if (Model.Executions == null || !Model.Executions.Any()) {
+                @if (Model.Executions == null || !Model.Executions.Any())
+                {
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-5">
+                        <td colspan="4" class="text-center text-muted py-5">
                             <i class="fas fa-inbox fs-2 mb-3 d-block"></i>
                             No previous executions found for this report.
                         </td>
                     </tr>
-                } else {
-                    foreach (var exec in Model.Executions) {
-                        <tr>
+                }
+                else
+                {
+                    foreach (var exec in Model.Executions)
+                    {
+                        <tr data-execution-id="@exec.Id">
                             <td class="text-nowrap">
                                 <div class="fw-semibold">@exec.ExecutionDate.ToString("MMM dd, yyyy")</div>
                                 <small class="text-muted">@exec.ExecutionDate.ToString("HH:mm:ss")</small>
                             </td>
                             <td>
-                                @switch(exec.Status){
+                                @switch (exec.Status)
+                                {
                                     case "Succeeded":
                                         <span class="badge bg-success"><i class="fas fa-check me-1"></i>@exec.Status</span>
                                         break;
@@ -298,43 +315,53 @@
                                         break;
                                     case "Running":
                                     case "Pending":
-                                        <span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin me-1"></i>@exec.Status</span>
+                                        <span class="badge bg-warning text-dark"><i
+                                                class="fas fa-spinner fa-spin me-1"></i>@exec.Status</span>
                                         break;
                                     default:
                                         <span class="badge bg-secondary">@exec.Status</span>
                                         break;
                                 }
                             </td>
-                          
                             <td>
-                                @if (exec.Duration.TotalSeconds > 0) {
+                                @if (exec.Duration.TotalSeconds > 0)
+                                {
                                     <span class="badge bg-light text-dark">
                                         <i class="fas fa-clock me-1"></i>@String.Format("{0}s", (int)exec.Duration.TotalSeconds)
                                     </span>
-                                } else {
-                                    <span class="text-muted">—</span>
                                 }
-                            </td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(exec.ResultFilePath)) {
-                                    <div class="d-flex align-items-center">
-                                        <i class="fas fa-file-alt text-primary me-2"></i>
-                                        @System.IO.Path.GetFileName(exec.ResultFilePath)
-                                    </div>
-                                } else {
-                                    <span class="text-muted">—</span>
+                                else
+                                {
+                                    <span class="text-muted">0s</span>
                                 }
                             </td>
                             <td class="text-end">
-                                @if (!string.IsNullOrEmpty(exec.ResultFilePath)) {
-                                    <a class="btn btn-sm btn-outline-primary" href="@Url.Action("DownloadExecutionResult","Report", new { id = exec.Id })">
-                                        <i class="fas fa-download me-1"></i>Download
-                                    </a>
-                                } else {
-                                    <button class="btn btn-sm btn-outline-secondary" disabled>
-                                        <i class="fas fa-ban me-1"></i>N/A
-                                    </button>
+                                @{
+                                    var isActive = ViewBag.ActiveExecutions?.Contains(exec.Id) == true;
                                 }
+                                <div class="btn-group" role="group">
+                                    @if ((exec.Status == "Running" || exec.Status == "Pending") && isActive)
+                                    {
+                                        <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                                            data-bs-target="#confirmModal" data-execution-id="@exec.Id""> 
+                                                      <i class=" fas fa-stop me-1"></i>Cancel
+                                        </button>
+                                    
+                                    }
+                                    @if (!string.IsNullOrEmpty(exec.ResultFilePath))
+                                    {
+                                        <a class="btn btn-sm btn-outline-primary"
+                                            href="@Url.Action("DownloadExecutionResult", "Report", new { id = exec.Id })">
+                                            <i class="fas fa-download me-1"></i>Download
+                                        </a>
+                                    }
+                                    @if (!((exec.Status == "Running" || exec.Status == "Pending") && isActive))
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger delete-execution" data-execution-id="@exec.Id">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -345,61 +372,72 @@
 </div>
 
 <script>
-(function(){
-    var form = $("#executeReportForm-@Model.Id");
-    var $tbody = $(".executions-table tbody");
-    
-    form.on("submit", function(e){
-        e.preventDefault();
-        var $btn = $("#executeBtn-@Model.Id");
-        var $status = $("#executeStatus-@Model.Id");
-        var $result = $("#executeResult-@Model.Id");
-        
-        $status.html('<div class="d-flex align-items-center text-primary"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Executing...</div>');
-        $btn.prop("disabled", true).html('<i class="fas fa-spinner fa-spin me-2"></i>Executing...');
-        
-        $.ajax({
-            url: form.attr("action"),
-            method: "POST",
-            data: form.serialize(),
-            success: function(resp){
-                $status.html('<div class="text-success"><i class="fas fa-check-circle me-1"></i>Started Successfully</div>');
-                $result.show().find(".alert").removeClass("alert-danger").addClass("alert-success")
-                    .html('<i class="fas fa-info-circle me-2"></i><strong>Execution Started!</strong><br>Execution ID: ' + (resp.executionId || "n/a"));
-                
-                // Add new execution to table
-                addExecutionToTable({
-                    executionDate: new Date(),
-                    status: "Running",
-                    user: "Current User",
-                    duration: 0,
-                    resultFilePath: null,
-                    id: resp.executionId
-                });
-            },
-            error: function(xhr){
-                var msg = "Failed to start execution";
-                try { msg = xhr.responseJSON?.error || xhr.responseText || msg; } catch(e){}
-                $status.html('<div class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed</div>');
-                $result.show().find(".alert").removeClass("alert-success").addClass("alert-danger")
-                    .html('<i class="fas fa-exclamation-triangle me-2"></i><strong>Execution Failed!</strong><br>' + msg);
-            },
-            complete: function(){
-                $btn.prop("disabled", false).html('<i class="fas fa-play me-2"></i>Execute Report');
-            }
+    (function () {
+        if (typeof signalR === 'undefined') {
+            console.error('SignalR not loaded');
+            return;
+        }
+
+        var form = $("#executeReportForm-@Model.Id");
+        var $tbody = $(".executions-table tbody");
+
+        var connection = new signalR.HubConnectionBuilder()
+            .withUrl("/executionHub")
+            .build();
+
+        connection.start().then(function () {
+            console.log("SignalR connected");
+        }).catch(function (err) {
+            console.error("SignalR connection failed: ", err);
         });
-    });
-    
-    function addExecutionToTable(exec) {
-        // Remove "no executions" message if it exists
-        $tbody.find('tr:has(td[colspan="6"])').remove();
-        
-        var now = new Date();
-        var dateStr = now.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-        var timeStr = now.toLocaleTimeString('en-US', { hour12: false });
-        
-        var newRow = `
-            <tr class="table-warning">
+
+        connection.on("ExecutionCompleted", function (executionId, status, duration, hasResult) {
+            updateExecutionRow(executionId, status, duration, hasResult);
+            showNotification(status, executionId);
+        });
+
+        form.on("submit", function (e) {
+            e.preventDefault();
+            var $btn = $("#executeBtn-@Model.Id");
+            var $status = $("#executeStatus-@Model.Id");
+            var $result = $("#executeResult-@Model.Id");
+
+            $status.html('<div class="d-flex align-items-center text-primary"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Executing...</div>');
+            $btn.prop("disabled", true).html('<i class="fas fa-spinner fa-spin me-2"></i>Executing...');
+
+            $.ajax({
+                url: form.attr("action"),
+                method: "POST",
+                data: form.serialize(),
+                success: function (resp) {
+                    $status.html('<div class="text-success"><i class="fas fa-check-circle me-1"></i>Started Successfully</div>');
+                    $result.show().find(".alert").attr('class', 'alert alert-success')
+                        .html('<i class="fas fa-info-circle me-2"></i><strong>Execution Started!</strong><br>Execution ID: ' + (resp.executionId || "n/a"));
+
+                    addExecutionToTable(resp.executionId);
+                },
+                error: function (xhr) {
+                    var msg = "Failed to start execution";
+                    try { msg = xhr.responseJSON?.error || xhr.responseText || msg; } catch (e) { }
+                    $status.html('<div class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed</div>');
+                    $result.show().find(".alert").attr('class', 'alert alert-danger')
+                        .html('<i class="fas fa-exclamation-triangle me-2"></i><strong>Execution Failed!</strong><br>' + msg);
+                },
+                complete: function () {
+                    $btn.prop("disabled", false).html('<i class="fas fa-play me-2"></i>Execute Report');
+                }
+            });
+        });
+
+        function addExecutionToTable(executionId) {
+            $tbody.find('tr:has(td[colspan="4"])').remove();
+
+            var now = new Date();
+            var dateStr = now.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+            var timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+
+            var newRow = `
+            <tr class="table-warning" data-execution-id="${executionId}">
                 <td class="text-nowrap">
                     <div class="fw-semibold">${dateStr}</div>
                     <small class="text-muted">${timeStr}</small>
@@ -409,18 +447,140 @@
                         <i class="fas fa-spinner fa-spin me-1"></i>Running
                     </span>
                 </td>
-         
-                <td><span class="text-muted">—</span></td>
                 <td><span class="text-muted">—</span></td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary" disabled>
-                        <i class="fas fa-ban me-1"></i>N/A
-                    </button>
+                    <div class="btn-group" role="group">
+                     <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#confirmModal" data-execution-id="${executionId}"> 
+                                          <i class="fas fa-stop me-1"></i>Cancel
+                                         </button>
+                        
+                    </div>
                 </td>
             </tr>
         `;
+
+            $tbody.prepend(newRow);
+        }
+
+        function updateExecutionRow(executionId, status, duration, hasResult) {
+            var $row = $tbody.find(`tr[data-execution-id="${executionId}"]`);
+            if ($row.length === 0) return;
+
+            var statusBadge = '';
+            var rowClass = '';
+            if (status === 'Succeeded') {
+                statusBadge = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Succeeded</span>';
+                rowClass = 'table-success';
+            } else if (status === 'Failed') {
+                statusBadge = '<span class="badge bg-danger"><i class="fas fa-times me-1"></i>Failed</span>';
+                rowClass = 'table-danger';
+            } else if (status === 'Cancelled') {
+                statusBadge = '<span class="badge bg-secondary"><i class="fas fa-ban me-1"></i>Cancelled</span>';
+                rowClass = 'table-secondary';
+            }
+
+            $row.removeClass('table-warning').addClass(rowClass);
+            $row.find('td:eq(1)').html(statusBadge);
+
+            if (duration > 0) {
+                $row.find('td:eq(2)').html(`<span class="badge bg-light text-dark"><i class="fas fa-clock me-1"></i>${duration}s</span>`);
+            }
+
+            if (hasResult) {
+                $row.find('td:eq(3)').html(`
+                <div class="btn-group" role="group">
+                    <a class="btn btn-sm btn-outline-primary" href="/Report/DownloadExecutionResult/${executionId}">
+                        <i class="fas fa-download me-1"></i>Download
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger delete-execution" data-execution-id=${executionId}>
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                </div>
+            `);
+            } else {
+                $row.find('td:eq(3)').html(`
+                <div class="btn-group" role="group">
+                   <button class="btn btn-sm btn-outline-danger delete-execution" data-execution-id=${executionId}>
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                </div>
+            `);
+            }
+        }
+          let confirmcancelid=null
+        var confirmModal = document.getElementById('confirmModal');
+        confirmModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+             confirmcancelid = button.getAttribute('data-execution-id');
+            console.log('confirmcancelid '+confirmcancelid);
+
+        });
+      
+      $(document).on('click', '#btnConfirmCancel', function () {
+    //var confirmcancelid = $(this).data('execution-id');
+    console.log(confirmcancelid);
+    $.ajax({
+        url: '/Home/CancelExecution',
+        method: 'POST',
+        data: { executionId: confirmcancelid },
+        success: function () {
+            showNotification('Cancelled', confirmcancelid);
+            
+        },
+        error: function () {
+            alert('Failed to cancel execution');
+        }
+    });
+});
+
+
+        @* $(document).on('click', '.cancel-execution', function () {
+            var executionId = $(this).data('execution-id');
+            var $btn = $(this);
+            var i = $('#modalconfirm');
+            
         
-        $tbody.prepend(newRow);
-    }
-})();
+        if (confirm('Are you sure you want to cancel this execution?')) {
+                    $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Cancelling...');
+
+                    $.ajax({
+                        url: '/Home/CancelExecution',
+                        method: 'POST',
+                        data: { executionId: executionId },
+                        success: function () {
+                            showNotification('Cancelled', executionId);
+                        },
+                        error: function () {
+                            alert('Failed to cancel execution');
+                            $btn.prop('disabled', false).html('<i class="fas fa-stop me-1"></i>Cancel');
+                        }
+                    });
+                }
+        }); *@
+
+        function showNotification(status, executionId) {
+            var message = status === 'Succeeded' ? 'Report execution completed successfully!' :
+                status === 'Cancelled' ? 'Report execution was cancelled!' :
+                    'Report execution failed!';
+            var alertClass = status === 'Succeeded' ? 'alert-success' :
+                status === 'Cancelled' ? 'alert-warning' :
+                    'alert-danger';
+            var icon = status === 'Succeeded' ? 'fa-check-circle' :
+                status === 'Cancelled' ? 'fa-ban' :
+                    'fa-exclamation-circle';
+
+            var notification = `
+            <div class="alert ${alertClass} alert-dismissible fade show position-fixed" style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;" role="alert">
+                <i class="fas ${icon} me-2"></i>${message}
+                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+            </div>
+        `;
+
+            $('body').append(notification);
+
+            setTimeout(function () {
+                $('.alert').fadeOut(function () { $(this).remove(); });
+            }, 5000);
+        }
+    })();
 </script>

@@ -474,6 +474,11 @@ namespace reportmangerv2.Migrations
                         .HasColumnType("NVARCHAR2(450)")
                         .HasColumnName("ID");
 
+                    b.Property<string>("CCMails")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("CCMAILS");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("CREATEDAT");
@@ -489,7 +494,6 @@ namespace reportmangerv2.Migrations
                         .HasColumnName("CRONEXPRESSION");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasColumnType("NVARCHAR2(2000)")
                         .HasColumnName("DESCRIPTION");
 
@@ -505,6 +509,15 @@ namespace reportmangerv2.Migrations
                     b.Property<DateTime?>("LastRunAt")
                         .HasColumnType("TIMESTAMP(7)")
                         .HasColumnName("LASTRUNAT");
+
+                    b.Property<string>("MessageBody")
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("MESSAGEBODY");
+
+                    b.Property<string>("MessageSubject")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("MESSAGESUBJECT");
 
                     b.Property<DateTime?>("NextRunAt")
                         .HasColumnType("TIMESTAMP(7)")
@@ -523,6 +536,11 @@ namespace reportmangerv2.Migrations
                         .IsRequired()
                         .HasColumnType("NVARCHAR2(450)")
                         .HasColumnName("SCHEMAID");
+
+                    b.Property<string>("SendToEmails")
+                        .IsRequired()
+                        .HasColumnType("NVARCHAR2(2000)")
+                        .HasColumnName("SENDTOEMAILS");
 
                     b.HasKey("Id");
 

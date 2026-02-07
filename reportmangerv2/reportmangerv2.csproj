@@ -11,8 +11,8 @@
     <Folder Include="Data\" />
     <Folder Include="Enums\" />
     <Folder Include="Services\" />
-    <Folder Include="ViewModels\" />
     <Folder Include="Views\Auth\" />
+    <Folder Include="Views\ScheduledJob\" />
     <Folder Include="Views\Shared\Components\" />
     <Folder Include="Views\Shared\Components\Sidebar\" />
   </ItemGroup>

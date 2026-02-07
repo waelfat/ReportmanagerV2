@@ -1,0 +1,73 @@
+﻿@model List<ScheduledJobViewModel>
+@{
+     ViewData["Title"] = "Schemas";
+    string? successMessage = ViewBag.SuccessMessage as string;  
+
+}
+<div class="container-fluid">
+    <table class="table">
+    <thead class="thead-light sticky-top">
+        <tr>
+            <th class="bg-dark text-white">Discription</th>
+            <th class="bg-dark text-white">IsActive</th>
+            <th class="bg-dark text-white">Schema</th>
+            <th class="bg-dark text-white">ProcedureName</th>
+            <th class="bg-dark text-white">CronExpression</th>
+            <th class="bg-dark text-white">NextRunAt</th>
+            <th class="bg-dark text-white">CreatedAt</th>
+            <th class="bg-dark text-white">CreatedBy</th>
+            <th class="bg-dark text-white text-center">Actions</th>
+           
+            
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(var job in Model){
+            <tr>
+          
+            <td>@job.Description</td>
+            <td>@job.IsActive</td>
+            <td>@job.Schema</td>
+            <td>@job.ProcedureName</td>
+            
+            <td data-cron="@job.CronExpression">@job.CronExpression</td>
+
+            <td>@job.NextRunAt</td>
+            <td>@job.CreatedAt</td>
+            <td>@job.CreatedBy</td>
+            <td class="text-center">
+                <div class="btn-group" role="group">
+                    <a asp-controller="ScheduledJob" asp-action="Details" asp-route-id="@job.Id" class="btn btn-sm btn-info" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a asp-controller="ScheduledJob" asp-action="Edit" asp-route-id="@job.Id" class="btn btn-sm btn-primary" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a asp-controller="ScheduledJob" asp-action="Delete" asp-route-id="@job.Id" class="btn btn-sm btn-danger" title="Delete">
+                       <i class="fa-solid fa-trash"></i>
+                    </a>
+                </div>
+            </td>
+            </tr>
+        }
+    </tbody>
+    </table>
+</div>
+@section Scripts{
+    <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css">
+    <script src="~/lib/cronstrue/dist/cronstrue.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cronCells = document.querySelectorAll('[data-cron]');
+            cronCells.forEach(function(cell) {
+                const cronExpression = cell.getAttribute('data-cron');
+                try {
+                    const humanReadable = cronstrue.toString(cronExpression, { verbose: true });
+                    cell.textContent = humanReadable;
+                } catch (e) {
+                    console.error('Error parsing cron expression:', cronExpression, e);
+                }
+            });
+        });
+    </script>
+    }

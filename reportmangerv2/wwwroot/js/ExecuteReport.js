@@ -23,4 +23,29 @@ $(function () {
             }
         });
     });
+    
+    // Delete execution handler
+    $(document).on('click', '.delete-execution', function() {
+        var executionId = $(this).data('execution-id');
+        var $btn = $(this);
+        
+        if (confirm('Are you sure you want to delete this execution? This action cannot be undone.')) {
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Deleting...');
+            
+            $.ajax({
+                url: '/Home/DeleteExecution',
+                method: 'POST',
+                data: { executionId: executionId },
+                success: function() {
+                    $(`tr[data-execution-id="${executionId}"]`).fadeOut(function() {
+                        $(this).remove();
+                    });
+                },
+                error: function() {
+                    alert('Failed to delete execution');
+                    $btn.prop('disabled', false).html('<i class="fas fa-trash me-1"></i>Delete');
+                }
+            });
+        }
+    });
 });

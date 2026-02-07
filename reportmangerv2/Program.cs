@@ -5,11 +5,14 @@ using Oracle.ManagedDataAccess.Client;
 using ReportManager.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
+using reportmangerv2.Hubs;
+using reportmangerv2.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 //add dbcontext oracle
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseOracle(builder.Configuration.GetConnectionString("DefaultConnection"), b => b.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19)));
@@ -42,6 +45,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
 builder.Services.AddHostedService<ExecutionService>();
 builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
+builder.Services.AddScoped<IExecutionNotificationService, ExecutionNotificationService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -58,10 +62,11 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+app.MapHub<ExecutionHub>("/executionHub");
 
 app.MapControllerRoute(
     name: "default",

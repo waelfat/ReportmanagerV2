@@ -66,7 +66,9 @@ public class ReportController : Controller
         if (string.IsNullOrEmpty(exec.ResultFilePath) || !System.IO.File.Exists(exec.ResultFilePath)) return NotFound();
         var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
         var contentType = provider.TryGetContentType(exec.ResultFilePath, out var ct) ? ct : "application/octet-stream";
-        return PhysicalFile(exec.ResultFilePath, contentType, System.IO.Path.GetFileName(exec.ResultFilePath));
+        return PhysicalFile(exec.ResultFilePath, contentType,
+         Path.GetFileName(exec.ResultFilePath).Contains("_")?  Path.GetFileName(exec.ResultFilePath).Split("_")[0]:
+ Path.GetFileName(exec.ResultFilePath)); 
     }
 
 }
