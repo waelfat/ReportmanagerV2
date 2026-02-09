@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 
-namespace ReportManager.Services;
+namespace ReportManagerv2.Services;
 
 public class CurrentActiveExecutionsService
 {

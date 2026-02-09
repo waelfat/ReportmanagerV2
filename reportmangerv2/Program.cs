@@ -2,7 +2,7 @@ using System.Threading.Channels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Oracle.ManagedDataAccess.Client;
-using ReportManager.Services;
+using ReportManagerv2.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 using reportmangerv2.Hubs;
@@ -42,11 +42,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
         options.AccessDeniedPath = "/Auth/AccessDenied";
         options.SlidingExpiration = true;
     });
+    builder.Services.AddScoped<ReportService>();
+    builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
+    builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddHostedService<ExecutionService>();
 builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
 builder.Services.AddScoped<IExecutionNotificationService, ExecutionNotificationService>();
-builder.Services.AddHostedService<ScheduledJobsExecuterService>();
+ builder.Services.AddHostedService<ScheduledJobsExecuterService>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

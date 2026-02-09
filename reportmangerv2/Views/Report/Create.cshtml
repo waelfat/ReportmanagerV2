@@ -1,0 +1,118 @@
+@model CreateReportModelView
+@{
+    ViewData["Title"] = "Create Report";
+}
+
+<div class="container mt-4">
+    <h2><i class="fas fa-file-alt me-2"></i>Create Report</h2>
+    
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="errorToast" class="toast" role="alert">
+            <div class="toast-header bg-danger text-white border-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong class="me-auto">Error</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="errorMessage"></div>
+        </div>
+        <div id="successToast" class="toast" role="alert">
+            <div class="toast-header bg-success text-white border-0">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="successMessage"></div>
+        </div>
+    </div>
+    
+    <form id="createReportForm">
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-info-circle me-2"></i>Report Information
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="Name">Report Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="Name" name="Name" required>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="Description">Description</label>
+                    <textarea class="form-control" id="Description" name="Description" rows="2"></textarea>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="SchemaId">Schema <span class="text-danger">*</span></label>
+                    <select class="form-control" id="SchemaId" name="SchemaId" required>
+                        <option value="">-- Select Schema --</option>
+                        @if (ViewBag.AvailableSchemas != null)
+                        {
+                            @foreach (var schema in ViewBag.AvailableSchemas as IEnumerable<SelectListItem>)
+                            {
+                                <option value="@schema.Value">@schema.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="CategoryId">Schema <span class="text-danger">*</span></label>
+                    <select class="form-control" id="CategoryId" name="CategoryId" required>
+                        <option value="">-- Select Category --</option>
+                        @if (ViewBag.CategoriesHierarchy != null)
+                        {
+                            @foreach (var category in ViewBag.CategoriesHierarchy as IEnumerable<SelectListItem>)
+                            {
+                                <option value="@category.Value">@category.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="IsActive" checked>
+                    <label class="form-check-label fw-semibold" for="IsActive">Active</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-code me-2"></i>SQL Query
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="ReportQuery">SQL Query <span class="text-danger">*</span></label>
+                    <textarea class="form-control font-monospace" id="ReportQuery" name="ReportQuery" rows="8" required placeholder="SELECT * FROM table WHERE column = :parameter1 AND date = :parameter2"></textarea>
+                    <small class="text-muted">Use <code>:parameterName</code> syntax for parameters</small>
+                </div>
+                
+                <button type="button" class="btn btn-info" id="loadParametersBtn">
+                    <i class="fas fa-sync-alt me-2"></i>Load Parameters
+                </button>
+            </div>
+        </div>
+        
+        <div id="parametersSection" style="display: none;">
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-sliders-h me-2"></i>Parameters Configuration
+                </div>
+                <div class="card-body">
+                    <div id="parametersList"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Create Report
+            </button>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-secondary">
+                <i class="fas fa-times me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script src="~/js/Report/CreateReport.js"></script>

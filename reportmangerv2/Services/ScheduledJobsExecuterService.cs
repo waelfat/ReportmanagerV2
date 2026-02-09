@@ -1,15 +1,15 @@
 using System;
 using System.Threading.Channels;
-using DocumentFormat.OpenXml.InkML;
+
 using Microsoft.EntityFrameworkCore;
 using NCrontab;
-using Newtonsoft.Json;
+
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 using reportmangerv2.Enums;
 
 
-namespace ReportManager.Services;
+namespace ReportManagerv2.Services;
 
 public class ScheduledJobsExecuterService : BackgroundService
 {
@@ -51,7 +51,7 @@ public class ScheduledJobsExecuterService : BackgroundService
                 foreach (var job in _DueJobs)
                 {
 
-                    var procName=await _context.ScheduledJobs.FirstOrDefaultAsync(x=>x.ProcedureName==job.ProcedureName);
+                    var procName=await _context.ScheduledJobs.FirstOrDefaultAsync(x=>x.ProcedureName==job.ProcedureName && x.JobStatus != ExecutionStatus.Running);
                     if (procName is null)
                     {
                         continue;
@@ -77,7 +77,12 @@ public class ScheduledJobsExecuterService : BackgroundService
                     
                     var executeReportMessage=new ExecutionRequest {
                          Id = job.Id, UserId = job.CreatedById,ReportTitle=job.ProcedureName ,ExecutionId=execution.Id,
-                         SQLStatement=job.ProcedureName, Type=ExecutionRequesType.StoredProcedure,ConnectionString=job.Schema.ConnectionString};
+                         SQLStatement=job.ProcedureName, Type=ExecutionRequesType.StoredProcedure,ConnectionString=job.Schema.ConnectionString,
+                         Body=job.MessageBody,
+                         To=job.SendToEmails,Subject=job.MessageSubject
+                        
+                         
+                         };
                          
                     
                     

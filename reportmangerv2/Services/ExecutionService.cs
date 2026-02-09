@@ -3,7 +3,7 @@ using System.Data;
 using System.Threading.Channels;
 
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
+
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using reportmangerv2.Data;
@@ -11,7 +11,7 @@ using reportmangerv2.Domain;
 using reportmangerv2.Enums;
 using reportmangerv2.Services;
 
-namespace ReportManager.Services;
+namespace ReportManagerv2.Services;
 
 public class ExecutionService : BackgroundService
 {
@@ -21,10 +21,12 @@ public class ExecutionService : BackgroundService
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly IConfiguration _configuration;
+    private readonly IEmailSender _emailSender;
     public ExecutionService(Channel<ExecutionRequest> channel, ILogger<ExecutionService> logger,
     CurrentActiveExecutionsService currentActiveExecutionsService,
     IServiceScopeFactory serviceScopeFactory,
     IWebHostEnvironment webHostEnvironment,
+    IEmailSender emailSender,
     IConfiguration configuration)
     {
         _channel = channel;
@@ -33,6 +35,8 @@ public class ExecutionService : BackgroundService
         _serviceScopeFactory = serviceScopeFactory;
         _webHostEnvironment = webHostEnvironment;
         _configuration = configuration;
+        _emailSender = emailSender;
+
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -40,17 +44,17 @@ public class ExecutionService : BackgroundService
         {
             try
             {
-        //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
+                //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
                 _logger.LogInformation($"Execution Type: {message.Type}");
                 switch (message.Type)
                 {
-                    case ExecutionRequesType.SqlStatement :
+                    case ExecutionRequesType.SqlStatement:
                         await ProcessExecutions(message, stoppingToken);
                         break;
-                        case ExecutionRequesType.StoredProcedure:
+                    case ExecutionRequesType.StoredProcedure:
                         await ProcessStoredProcedureExecutions(message, stoppingToken);
                         break;
-                        default:
+                    default:
                         _logger.LogWarning($"Unknown execution type: {message.Type}");
                         throw new ArgumentOutOfRangeException(nameof(message.Type), message.Type, null);
                 }
@@ -71,9 +75,9 @@ public class ExecutionService : BackgroundService
     }
     private async Task ProcessExecutions(ExecutionRequest message, CancellationToken stoppingToken)
     {
-     
+
         string executionId = string.Empty;
-        OracleParameter[] executionParameters=[];
+        OracleParameter[] executionParameters = [];
         var executionCancellationTokenSource = new CancellationTokenSource();
         var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, executionCancellationTokenSource.Token);
 
@@ -88,34 +92,34 @@ public class ExecutionService : BackgroundService
 
 
                 // Process the report execution
-               //load the executionparameters
-                var execution= await context.Executions.FirstOrDefaultAsync(e=>e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
-               execution.ExecutionStatus = ExecutionStatus.Running;
-               //execution.ExecutionDate = DateTime.UtcNow; // Set actual start time
-               //load exection in 
-               executionParameters = execution.ExecutionParameters.Select(p=> new OracleParameter(p.Name, (object?)p.Value ?? DBNull.Value)).ToArray();
+                //load the executionparameters
+                var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
+                execution.ExecutionStatus = ExecutionStatus.Running;
+                //execution.ExecutionDate = DateTime.UtcNow; // Set actual start time
+                //load exection in 
+                executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter(p.Name, (object?)p.Value ?? DBNull.Value)).ToArray();
 
-            
+
                 await context.SaveChangesAsync(linkedTokenSource.Token);
                 if (execution == null) throw new Exception("Execution not found");
                 executionId = execution.Id;
-                var added=_currentActiveExecutionsService.AddExecution(message.ExecutionId, message.Id, message.UserId, execution.ExecutionDate, linkedTokenSource);
+                var added = _currentActiveExecutionsService.AddExecution(message.ExecutionId, message.Id, message.UserId, execution.ExecutionDate, linkedTokenSource);
                 if (!added)
                 {
                     _logger.LogWarning("Execution already exists in CurrentActiveExecutionsService");
                 }
-               // report = await context.Reports.FindAsync(message.ReportId);
+                // report = await context.Reports.FindAsync(message.ReportId);
                 _logger.LogInformation($"Started execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
 
             }
-           // await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
+            // await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleDataReader reader = ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
 
 
             var filePathFinal = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
             #region previouscode
-     
+
             #endregion
 
             await reader.CloseAsync();
@@ -134,29 +138,29 @@ public class ExecutionService : BackgroundService
 
                     await context.SaveChangesAsync();
                     _currentActiveExecutionsService.RemoveExecution(executionId);
-                    
+
                     // Send SignalR notification
                     await notificationService.NotifyExecutionCompleted(
-                        executionId, 
-                        "Succeeded", 
-                        (int)execution.Duration.TotalSeconds, 
+                        executionId,
+                        "Succeeded",
+                        (int)execution.Duration.TotalSeconds,
                         !string.IsNullOrEmpty(filePathFinal),
                         message.UserId
                     );
-                    
+
                     _logger.LogInformation($"Completed execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
                 }
             }
             Console.WriteLine($"Executing report {message.ReportTitle} with parameters:");
-           
+
             Console.WriteLine($"Report {message.ReportTitle} execution completed.");
 
         }
-        
+
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error logging report execution start.");
-               _logger.LogInformation($"Report {message.ReportTitle} execution was cancelled.");
+            _logger.LogInformation($"Report {message.ReportTitle} execution was cancelled.");
             // Update execution status to Failed or Cancelled
             try
             {
@@ -164,7 +168,7 @@ public class ExecutionService : BackgroundService
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
-                    var execution = await context.Executions.FirstOrDefaultAsync(e=>e.Id == executionId);
+                    var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == executionId);
                     if (execution != null)
                     {
                         execution.ExecutionStatus = ex is OperationCanceledException ? ExecutionStatus.Cancelled : ExecutionStatus.Failed;
@@ -174,16 +178,16 @@ public class ExecutionService : BackgroundService
 
                         await context.SaveChangesAsync();
                         _currentActiveExecutionsService.RemoveExecution(executionId);
-                        
+
                         // Send SignalR notification
                         await notificationService.NotifyExecutionCompleted(
-                            executionId, 
-                            ex is OperationCanceledException ? "Cancelled" : "Failed", 
-                            (int)execution.Duration.TotalSeconds, 
+                            executionId,
+                            ex is OperationCanceledException ? "Cancelled" : "Failed",
+                            (int)execution.Duration.TotalSeconds,
                             false,
                             message.UserId
                         );
-                        
+
                         _logger.LogInformation($"Cancelled execution of report {message.Id} for user {message.UserId} with Execution ID {execution.Id}");
                     }
                 }
@@ -201,7 +205,7 @@ public class ExecutionService : BackgroundService
         var workbook = new ClosedXML.Excel.XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Report");
         //  create uniue file name with date time and id
-        
+
         string fileName = $"{message.ReportTitle}-{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N")[..5]}.xlsx";
         // string fileName = $"{message.ReportTitle}_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.xlsx";
         string filePath = Path.Combine(_webHostEnvironment.ContentRootPath, "Reports", fileName);
@@ -213,8 +217,10 @@ public class ExecutionService : BackgroundService
             worksheet.Cell(1, i + 1).Value = reader.GetName(i);
         }
         var currentRow = 2;
-        await reader.ReadAsync();
-        while (await reader.ReadAsync())
+
+        if (!reader.HasRows)
+            return string.Empty;
+        while (await reader.ReadAsync(cancellationToken))
         {
             for (int i = 0; i < reader.FieldCount; i++)
             {
@@ -222,10 +228,7 @@ public class ExecutionService : BackgroundService
             }
             currentRow++;
         }
-        if (cancellationToken.IsCancellationRequested)
-        {
-            throw new OperationCanceledException(cancellationToken);
-        }
+        cancellationToken.ThrowIfCancellationRequested();
         workbook.SaveAs(filePath);
         return filePath;
     }
@@ -235,7 +238,7 @@ public class ExecutionService : BackgroundService
         command.CommandText = sqlStatement;
         // Add parameters to the command
         command.Parameters.AddRange(parameters);
- 
+
         connection.Open();
 
         // Log current DB user and current schema and try to resolve unqualified table names (helps when different schema owns the table)
@@ -286,7 +289,7 @@ public class ExecutionService : BackgroundService
         // Implement stored procedure execution logic here
         string executionId = string.Empty;
         OracleParameter[] executionParameters = [];
-        
+        var outfilesList = new List<string>();
         var executionCancellationTokenSource = new CancellationTokenSource();
         var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, executionCancellationTokenSource.Token);
         try
@@ -295,40 +298,38 @@ public class ExecutionService : BackgroundService
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                   var execution= await context.Executions.FirstOrDefaultAsync(e=>e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
-               execution.ExecutionStatus = ExecutionStatus.Running;
-               executionParameters = execution.ExecutionParameters.Select(p=> new OracleParameter
-               {
-                  Direction = p.Direction,
-                  Value =(object?) p.Value ?? DBNull.Value,
-                  ParameterName = p.Name,
-                  OracleDbType = p.Type, // p.Type must be OracleDbType Direction = p.Direction, // ParameterDirection Value = p.Value ?? DBNull.Value
-                   
-               }).ToArray();
-           
-               
+                var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == message.ExecutionId, linkedTokenSource.Token) ?? throw new Exception("Execution not found");
+                execution.ExecutionStatus = ExecutionStatus.Running;
+                executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter
+                {
+                    Direction = p.Direction,
+                    Value = (object?)p.Value ?? DBNull.Value,
+                    ParameterName = p.Name,
+                    OracleDbType = p.Type, // p.Type must be OracleDbType Direction = p.Direction, // ParameterDirection Value = p.Value ?? DBNull.Value
+
+                }).ToArray();
+
+
                 await context.SaveChangesAsync(linkedTokenSource.Token);
                 executionId = execution.Id;
             }
-            await Task.Delay(TimeSpan.FromSeconds(2), executionCancellationTokenSource.Token); // Simulate some initial delay
-          
+            await Task.Delay(TimeSpan.FromSeconds(2), linkedTokenSource.Token); // Simulate some initial delay
+
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleCommand command = new OracleCommand(message.SQLStatement, connection);
             command.CommandType = CommandType.StoredProcedure;
             command.Parameters.AddRange(executionParameters);
             await connection.OpenAsync(linkedTokenSource.Token);
-            _currentActiveExecutionsService.AddExecution(executionId,message.Id,message.UserId,DateTime.Now,linkedTokenSource);
+            _currentActiveExecutionsService.AddExecution(executionId, message.Id, message.UserId, DateTime.Now, linkedTokenSource);
             _logger.LogInformation($"Executing stored procedure {message.ReportTitle} with parameters:");
             await command.ExecuteNonQueryAsync(linkedTokenSource.Token);
             // Retrieve output parameter values
             var outputParams = executionParameters.Where(p => p.Direction == ParameterDirection.Output || p.Direction == ParameterDirection.InputOutput).ToArray();
+
             foreach (var param in outputParams)
             {
-                if (linkedTokenSource.Token.IsCancellationRequested)
-                {
-                    throw new OperationCanceledException(linkedTokenSource.Token);
-                }
-                
+                linkedTokenSource.Token.ThrowIfCancellationRequested();
+
                 if (command.Parameters[param.ParameterName].Value == DBNull.Value)
                 {
                     _logger.LogInformation($"Output Parameter {param.ParameterName}: NULL");
@@ -339,35 +340,107 @@ public class ExecutionService : BackgroundService
                     OracleDataReader reader = ((OracleRefCursor)command.Parameters[param.ParameterName].Value).GetDataReader();
                     // Process the ref cursor as needed
                     _logger.LogInformation($"Output Parameter {param.ParameterName} is a RefCursor with {reader.FieldCount} fields.");
-                    await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
+                    string filePath = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
+
                     await reader.CloseAsync();
+                    if (!string.IsNullOrWhiteSpace(filePath)) outfilesList.Add(filePath);
+                    _logger.LogInformation($"RefCursor data saved to {filePath}");
                     continue;
                 }
                 var value = command.Parameters[param.ParameterName].Value;
                 _logger.LogInformation($"Output Parameter {param.ParameterName}: {value}");
             }
             await connection.CloseAsync();
-            _currentActiveExecutionsService.RemoveExecution(executionId);
+            // mark job as pending
+          
+
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing stored procedure execution.");
-            _currentActiveExecutionsService.RemoveExecution(executionId);
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var execution = context.Executions.FirstOrDefault(e => e.Id == message.ExecutionId);
+                if (execution != null)
+                {
+                    execution.ExecutionStatus = ExecutionStatus.Failed;
+                    execution.ErrorMessage = ex.Message;
+                    execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
+
+                }
+                _logger.LogError(ex, "Error processing stored procedure execution for ExecutionId: {ExecutionId}", message.ExecutionId);
+                // reset scheduled job 
+                var failedJob = await context.ScheduledJobs.FirstOrDefaultAsync(s => s.Id == message.ExecutionId, linkedTokenSource.Token);
+                failedJob?.JobStatus = ExecutionStatus.Pending;
+
+                _ = await context.SaveChangesAsync(linkedTokenSource.Token);
+                _currentActiveExecutionsService.RemoveExecution(executionId);
+                return;
+            }
         }
+        string fileslist = string.Empty;
+        // concatinate files names with comma
+        if (!(outfilesList.Count == 0))
+            fileslist = string.Join(",", outfilesList);
+        using (var scope = _serviceScopeFactory.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == message.ExecutionId, linkedTokenSource.Token);
+            if (execution != null)
+            {
+                execution.ExecutionStatus = ExecutionStatus.Completed;
+                execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
+                execution.ResultFilePath = fileslist;//filePath; // Store the file path
+                execution.ErrorMessage = $"No Data retruned at {DateTime.Now.ToLongTimeString()}";
+            }
+
+                // mark job as pending
+                var job = await context.ScheduledJobs.FirstOrDefaultAsync(s => s.Id == message.Id, linkedTokenSource.Token);
+                job?.JobStatus = ExecutionStatus.Pending;
+                // 
+                _ = await context.SaveChangesAsync(linkedTokenSource.Token);
+        }
+        try
+        {
+
+            // send files by mail
+            if (message.To != null)
+            {
+
+                await _emailSender.SendEmailAsync(message.To, message.Subject ?? string.Empty, string.IsNullOrWhiteSpace(fileslist)? $"No Data retruned at {DateTime.Now.ToLongTimeString()}": message.Body ?? string.Empty, fileslist, message.CC ?? string.Empty);
+            }
+        }
+        catch (System.Exception e)
+        {
+            _logger.LogError(e, "Error sending email");
+
+           
+        }
+
+
+
+        _currentActiveExecutionsService.RemoveExecution(executionId);
+
     }
 }
 
 public class ExecutionRequest
 {
 
-    public required string Id { get; set; }=Guid.NewGuid().ToString();
+    public required string Id { get; set; } = Guid.NewGuid().ToString();
     public required string ReportTitle { get; set; }
-    public required string  ExecutionId { get; set; }
+    public required string ExecutionId { get; set; }
 
     public required string SQLStatement { get; set; }
     public required string ConnectionString { get; set; }
     public required string UserId { get; set; }
-    public required ExecutionRequesType Type { get; set; }=ExecutionRequesType.SqlStatement;
+    public required ExecutionRequesType Type { get; set; } = ExecutionRequesType.SqlStatement;
+    public string? Emails { get; set; }
+    public string? CC { get; set; }
+    public string? Body { get; set; }
+    public string? To { get; set; }
+    public string? Subject { get; set; }
 
 
 

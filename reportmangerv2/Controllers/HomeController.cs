@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using ReportManager.Services;
+using ReportManagerv2.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 using reportmangerv2.Enums;
