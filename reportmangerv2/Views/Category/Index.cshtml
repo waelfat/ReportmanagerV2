@@ -1,0 +1,75 @@
+@using reportmangerv2.Domain
+@model List<CategoryViewModel>
+@{
+    ViewData["Title"] = "Categories";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-folder me-2"></i>Categories</h2>
+        <a href="@Url.Action("Create")" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Create Category
+        </a>
+    </div>
+    
+    @if (Model != null && Model.Any())
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th><i class="fas fa-tag me-2"></i>Name</th>
+                                <th><i class="fas fa-folder-tree me-2"></i>Parent Category</th>
+                                <th><i class="fas fa-file-alt me-2"></i>Reports Count</th>
+                                <th><i class="fas fa-calendar me-2"></i>Created At</th>
+                                <th><i class="fas fa-user me-2"></i>Created By</th>
+                                <th class="text-center"><i class="fas fa-cog me-2"></i>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var category in Model)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@category.Name</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(category.ParentCategoryName))
+                                        {
+                                            <span class="badge bg-secondary">@category.ParentCategoryName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">Root</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">@category.ReportsCount</span>
+                                    </td>
+                                    <td>@category.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                    <td>@category.CreatedByUserName</td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="@Url.Action("Edit", new { id = category.Id })" class="btn btn-outline-primary" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a href="@Url.Action("Delete", new { id = category.Id })" class="btn btn-outline-danger" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>No categories found. Create your first category to get started.
+        </div>
+    }
+</div>

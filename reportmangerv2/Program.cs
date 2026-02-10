@@ -45,6 +45,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
     builder.Services.AddScoped<ReportService>();
     builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
     builder.Services.AddTransient<IEmailSender, EmailSender>();
+    builder.Services.AddScoped<ICategoryService,CategoryService>();
 builder.Services.AddHostedService<ExecutionService>();
 builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
