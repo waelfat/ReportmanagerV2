@@ -9,9 +9,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using reportmangerv2.Services;
 using Oracle.ManagedDataAccess.Client;
+using Microsoft.AspNetCore.Authorization;
 
 namespace reportmangerv2.Controllers;
-
+[Authorize (Roles ="Admin")]
 public class ReportController : Controller
 {
     private readonly AppDbContext _context;
@@ -24,6 +25,31 @@ public class ReportController : Controller
         _reportService = reportService;
 
     }
+    [HttpGet]
+    public async Task<IActionResult> Index()
+    {
+        var reports = await _context.Reports
+            .Include(r => r.Schema)
+            .Include(r => r.Category)
+            .Include(r => r.CreatedBy)
+            .Select(r=> new { r.Id, r.Name, r.Description, r.Schema, r.Category, r.IsActive, r.CreatedDate, CreatedByName= r.CreatedBy.FullName })
+            .ToListAsync();
+            
+        var viewModel = reports.Select(r => new ReportViewModel
+        {
+            Id = r.Id,
+            Name = r.Name,
+            Description = r.Description,
+            SchemaName = r.Schema.Name,
+            CategoryName = r.Category.Name,
+            IsActive = r.IsActive,
+            CreatedDate = r.CreatedDate,
+            CreatedByUserName = r.CreatedByName ?? "N/A"
+        }).ToList();
+        
+        return View(viewModel);
+    }
+    
     [HttpGet]
     public async Task<IActionResult> create()
     {
@@ -115,6 +141,161 @@ ORDER SIBLINGS BY c.name";
     
     we must spcify a category in report creation but categories are stored in hierarchy table categories so in create view we will create 
     */
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(string id)
+    {
+        var report = await _context.Reports
+            .Include(r => r.ReportParameters)
+            .FirstOrDefaultAsync(r => r.Id == id);
+            
+        if (report == null)
+        {
+            return NotFound();
+        }
+        
+        var viewModel = new EditReportViewModel
+        {
+            Id = report.Id,
+            Name = report.Name,
+            Description = report.Description,
+            ReportQuery = report.ReportQuery,
+            SchemaId = report.SchemaId,
+            CategoryId = report.CategoryId,
+            IsActive = report.IsActive,
+            Parameters = report.ReportParameters.Select(p => new EditReportParameterViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Description = p.Description,
+                Type = p.Type.ToString(),
+                ViewControl = p.ViewControl.ToString(),
+                DefaultValue = p.DefaultValue,
+                Position = p.Position,
+                IsRequired = p.IsRequired
+            }).ToList()
+        };
+        
+        var schemas = await _context.Schemas.Select(s => new SelectListItem { Text = s.Name, Value = s.Id }).ToListAsync();
+        ViewBag.AvailableSchemas = schemas;
+        
+        var categoriesHierarchyQuery = @"
+       SELECT
+  LPAD('--', 4*(LEVEL-1)) || c.name   AS Name
+  ,c.id as Id
+FROM
+  Categories c
+START WITH
+  c.ParentCategoryId IS NULL
+CONNECT BY
+  PRIOR c.id = c.parentcategoryid
+ORDER SIBLINGS BY c.name";
+        
+        var categoriesHierarchy = await _context.Categories.FromSqlRaw(categoriesHierarchyQuery)
+            .Select(c => new SelectListItem { Text = c.Name, Value = c.Id.ToString() }).ToListAsync();
+        ViewBag.CategoriesHierarchy = categoriesHierarchy;
+        
+        return View(viewModel);
+    }
+    
+    [HttpPost]
+    public async Task<IActionResult> Edit([FromBody] EditReportViewModel model)
+    {
+        if (!ModelState.IsValid)
+        {
+            var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
+            return BadRequest(string.Join(", ", errors));
+        }
+        
+        try
+        {
+            var report = await _context.Reports
+                .Include(r => r.ReportParameters)
+                .FirstOrDefaultAsync(r => r.Id == model.Id);
+                
+            if (report == null)
+            {
+                return NotFound();
+            }
+            
+            report.Name = model.Name;
+            report.Description = model.Description;
+            report.ReportQuery = model.ReportQuery;
+            report.SchemaId = model.SchemaId;
+            report.CategoryId = model.CategoryId;
+            report.IsActive = model.IsActive;
+            report.ModifiedDate = DateTime.UtcNow;
+            
+            report.ReportParameters.Clear();
+            report.ReportParameters = model.Parameters.Select(p => new ReportParameter
+            {
+                Id = p.Id ?? Guid.NewGuid().ToString(),
+                Name = p.Name,
+                Description = p.Description,
+                Type = Enum.Parse<OracleDbType>(p.Type, true),
+                ViewControl = Enum.Parse<ViewControl>(p.ViewControl, true),
+                DefaultValue = p.DefaultValue,
+                Position = p.Position,
+                IsRequired = p.IsRequired
+            }).ToList();
+            
+            await _context.SaveChangesAsync();
+            
+            _logger.LogInformation("Report updated successfully with ID: {ReportId}", report.Id);
+            return Ok(new { message = "Report updated successfully" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating report");
+            return StatusCode(500, "An error occurred while updating the report");
+        }
+    }
+    
+    [HttpGet]
+    public async Task<IActionResult> Delete(string id)
+    {
+        var report = await _context.Reports
+            .Include(r => r.Schema)
+            .Include(r => r.Category)
+            .Include(r => r.CreatedBy)
+            .Include(r => r.ReportParameters)
+            .FirstOrDefaultAsync(r => r.Id == id);
+            
+        if (report == null)
+        {
+            return NotFound();
+        }
+        
+        var viewModel = new DeleteReportViewModel
+        {
+            Id = report.Id,
+            Name = report.Name,
+            Description = report.Description,
+            SchemaName = report.Schema.Name,
+            CategoryName = report.Category.Name,
+            ParametersCount = report.ReportParameters.Count,
+            CreatedDate = report.CreatedDate,
+            CreatedByUserName = report.CreatedBy?.UserName ?? "N/A"
+        };
+        
+        return View(viewModel);
+    }
+    
+    [HttpPost, ActionName("Delete")]
+    public async Task<IActionResult> DeleteConfirmed(string id)
+    {
+        var report = await _context.Reports.FindAsync(id);
+        if (report == null)
+        {
+            return NotFound();
+        }
+        
+        _context.Reports.Remove(report);
+        await _context.SaveChangesAsync();
+        
+        _logger.LogInformation("Report deleted successfully with ID: {ReportId}", id);
+        return RedirectToAction(nameof(Index));
+    }
 
     public async Task<IActionResult> GetReportById(string id)
     {

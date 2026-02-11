@@ -131,5 +131,4 @@ public class CategoryController:Controller
         await _categoryService.DeleteCategory(id);
         return RedirectToAction(nameof(Index));
     }
-
 }

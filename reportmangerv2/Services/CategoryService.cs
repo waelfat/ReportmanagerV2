@@ -87,6 +87,12 @@ Text=c.Name,Value=c.Id}).ToListAsync();
     {
         // check if the new parent is not a descendant of the category
         // if it is, throw an exception to prevent circular reference
+        if (category.ParentCategoryId == category.Id)
+        {
+            throw new Exception("Cannot set category as its own parent.");
+            
+            
+        }
         if (!string.IsNullOrWhiteSpace(category.ParentCategoryId))
         {
             var isDescendant = await IsDescendantEfAsync(category.Id, category.ParentCategoryId);
@@ -94,6 +100,7 @@ Text=c.Name,Value=c.Id}).ToListAsync();
             {
                 throw new Exception("Cannot move category to its own descendant.");
             }
+
         }
        
         _context.Categories.Update(category);

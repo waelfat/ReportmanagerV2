@@ -1,0 +1,41 @@
+@model reportmangerv2.ViewModels.SchemaViewModel
+@{
+    ViewData["Title"] = "Schema Details";
+}
+<div class="container mt-4">
+    <h2><i class="fas fa-info-circle me-2"></i>Schema Details</h2>
+    <div class="card mt-4">
+        <div class="card-header bg-info text-white">
+            <i class="fas fa-database me-2"></i>Schema Information
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3"><i class="fas fa-tag me-2"></i>Name</dt>
+                <dd class="col-sm-9">@Model.Name</dd>
+                <dt class="col-sm-3"><i class="fas fa-align-left me-2"></i>Description</dt>
+                <dd class="col-sm-9">@Model.Description</dd>
+                <dt class="col-sm-3"><i class="fas fa-server me-2"></i>Host</dt>
+                <dd class="col-sm-9">@Model.Host</dd>
+                <dt class="col-sm-3"><i class="fas fa-network-wired me-2"></i>Port</dt>
+                <dd class="col-sm-9">@Model.Port</dd>
+                <dt class="col-sm-3"><i class="fas fa-database me-2"></i>Service Name</dt>
+                <dd class="col-sm-9">@Model.ServiceName</dd>
+                <dt class="col-sm-3"><i class="fas fa-user me-2"></i>User Id</dt>
+                <dd class="col-sm-9">@Model.UserId</dd>
+                <dt class="col-sm-3"><i class="fas fa-calendar me-2"></i>Created At</dt>
+                <dd class="col-sm-9">@Model.CreatedAt.ToString("MMMM dd, yyyy")</dd>
+            </dl>
+            <div class="d-flex gap-2 mt-4">
+                <a href="@Url.Action("Edit", new { id = Model.Id })" class="btn btn-outline-primary">
+                    <i class="fas fa-edit me-2"></i>Edit
+                </a>
+                <a href="@Url.Action("Delete", new { id = Model.Id })" class="btn btn-outline-danger">
+                    <i class="fas fa-trash me-2"></i>Delete
+                </a>
+                <a href="@Url.Action("Index")" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

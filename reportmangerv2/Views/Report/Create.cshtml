@@ -55,6 +55,20 @@
                         }
                     </select>
                 </div>
+                
+                <div class="form-group mb-3">
+                    <label for="CategoryId">Category <span class="text-danger">*</span></label>
+                    <select class="form-control" id="CategoryId" name="CategoryId" required>
+                        <option value="">-- Select Category --</option>
+                        @if (ViewBag.CategoriesHierarchy != null)
+                        {
+                            @foreach (var category in ViewBag.CategoriesHierarchy as IEnumerable<SelectListItem>)
+                            {
+                                <option value="@category.Value">@category.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
                 <div class="form-group mb-3">
                     <label for="CategoryId">Schema <span class="text-danger">*</span></label>
                     <select class="form-control" id="CategoryId" name="CategoryId" required>

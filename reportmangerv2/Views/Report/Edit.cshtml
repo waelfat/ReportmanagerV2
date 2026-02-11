@@ -1,0 +1,172 @@
+@model EditReportViewModel
+@{
+    ViewData["Title"] = "Edit Report";
+}
+
+<div class="container mt-4">
+    <h2><i class="fas fa-edit me-2"></i>Edit Report</h2>
+    
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="errorToast" class="toast" role="alert">
+            <div class="toast-header bg-danger text-white border-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong class="me-auto">Error</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="errorMessage"></div>
+        </div>
+        <div id="successToast" class="toast" role="alert">
+            <div class="toast-header bg-success text-white border-0">
+                <i class="fas fa-check-circle me-2"></i>
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="successMessage"></div>
+        </div>
+    </div>
+    
+    <form id="editReportForm">
+        <input type="hidden" id="ReportId" value="@Model.Id">
+        
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-info-circle me-2"></i>Report Information
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="Name">Report Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="Name" value="@Model.Name" required>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="Description">Description</label>
+                    <textarea class="form-control" id="Description" rows="2">@Model.Description</textarea>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="SchemaId">Schema <span class="text-danger">*</span></label>
+                    <select class="form-control" id="SchemaId" required>
+                        @if (ViewBag.AvailableSchemas != null)
+                        {
+                            @foreach (var schema in ViewBag.AvailableSchemas as IEnumerable<SelectListItem>)
+                            {
+                                <option value="@schema.Value" selected="@(schema.Value == Model.SchemaId)">@schema.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="CategoryId">Category <span class="text-danger">*</span></label>
+                    <select class="form-control" id="CategoryId" required>
+                        @if (ViewBag.CategoriesHierarchy != null)
+                        {
+                            @foreach (var category in ViewBag.CategoriesHierarchy as IEnumerable<SelectListItem>)
+                            {
+                                <option value="@category.Value" selected="@(category.Value == Model.CategoryId)">@category.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="IsActive" @(Model.IsActive ? "checked" : "")>
+                    <label class="form-check-label fw-semibold" for="IsActive">Active</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-code me-2"></i>SQL Query
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="ReportQuery">SQL Query <span class="text-danger">*</span></label>
+                    <textarea class="form-control font-monospace" id="ReportQuery" rows="8" required>@Model.ReportQuery</textarea>
+                    <small class="text-muted">Use <code>:parameterName</code> syntax for parameters</small>
+                </div>
+                
+                <button type="button" class="btn btn-info" id="loadParametersBtn">
+                    <i class="fas fa-sync-alt me-2"></i>Reload Parameters
+                </button>
+            </div>
+        </div>
+        
+        <div id="parametersSection">
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <i class="fas fa-sliders-h me-2"></i>Parameters Configuration
+                </div>
+                <div class="card-body">
+                    <div id="parametersList">
+                        <div class="row g-3">
+                            @foreach (var param in Model.Parameters)
+                            {
+                                <div class="col-md-6">
+                                    <div class="card border-primary border-opacity-25">
+                                        <div class="card-body">
+                                            <h6 class="text-primary"><i class="fas fa-tag me-2"></i>@param.Name</h6>
+                                            <input type="hidden" class="param-id" value="@param.Id">
+                                            <input type="hidden" class="param-name" value="@param.Name">
+                                            
+                                            <div class="mb-2">
+                                                <label class="form-label fw-semibold">Description</label>
+                                                <input type="text" class="form-control param-description" value="@param.Description" placeholder="Parameter description">
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
+                                                <select class="form-control param-type" required>
+                                                    <option value="Varchar2" selected="@(param.Type == "Varchar2")">Varchar2</option>
+                                                    <option value="Decimal" selected="@(param.Type == "Decimal")">Number</option>
+                                                    <option value="Date" selected="@(param.Type == "Date")">Date</option>
+                                                    <option value="TimeStamp" selected="@(param.Type == "TimeStamp")">TimeStamp</option>
+                                                    <option value="Clob" selected="@(param.Type == "Clob")">Clob</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <label class="form-label fw-semibold">View Control <span class="text-danger">*</span></label>
+                                                <select class="form-control param-viewcontrol" required>
+                                                    <option value="TextBox" selected="@(param.ViewControl == "TextBox")">TextBox</option>
+                                                    <option value="Select" selected="@(param.ViewControl == "Select")">Select</option>
+                                                    <option value="CheckBox" selected="@(param.ViewControl == "CheckBox")">CheckBox</option>
+                                                    <option value="Date" selected="@(param.ViewControl == "Date")">Date</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-2">
+                                                <label class="form-label fw-semibold">Default Value</label>
+                                                <input type="text" class="form-control param-default" value="@param.DefaultValue" placeholder="Default value">
+                                            </div>
+                                            
+                                            <div class="form-check">
+                                                <input class="form-check-input param-required" type="checkbox" @(param.IsRequired ? "checked" : "")>
+                                                <label class="form-check-label">Required</label>
+                                            </div>
+                                            
+                                            <input type="hidden" class="param-position" value="@param.Position">
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-save me-2"></i>Update Report
+            </button>
+            <a href="@Url.Action("Index")" class="btn btn-secondary">
+                <i class="fas fa-times me-2"></i>Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script src="~/js/Report/EditReport.js"></script>

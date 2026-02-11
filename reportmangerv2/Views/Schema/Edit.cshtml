@@ -1,0 +1,76 @@
+@model reportmangerv2.ViewModels.EditSchemaViewModel
+@{
+    ViewData["Title"] = "Edit Schema";
+}
+<div class="container mt-4">
+    <h2><i class="fas fa-edit me-2"></i>Edit Schema</h2>
+    <div class="card mt-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-info-circle me-2"></i>Schema Information
+        </div>
+        <div class="card-body">
+            <form asp-action="Edit" method="post">
+                <input type="hidden" asp-for="Id" />
+                <div class="form-group mb-3">
+                    <label asp-for="Name" class="form-label fw-semibold">
+                        <i class="fas fa-tag me-2"></i>Schema Name <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="Name" class="form-control" placeholder="Enter schema name" required />
+                    <span asp-validation-for="Name" class="text-danger"></span>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="Description" class="form-label fw-semibold">
+                        <i class="fas fa-align-left me-2"></i>Description
+                    </label>
+                    <textarea asp-for="Description" class="form-control" placeholder="Enter description"></textarea>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="Host" class="form-label fw-semibold">
+                        <i class="fas fa-server me-2"></i>Host <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="Host" class="form-control" placeholder="Enter host" required />
+                    <span asp-validation-for="Host" class="text-danger"></span>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="Port" class="form-label fw-semibold">
+                        <i class="fas fa-network-wired me-2"></i>Port <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="Port" class="form-control" placeholder="Enter port" required />
+                    <span asp-validation-for="Port" class="text-danger"></span>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="ServiceName" class="form-label fw-semibold">
+                        <i class="fas fa-database me-2"></i>Service Name <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="ServiceName" class="form-control" placeholder="Enter service name" required />
+                    <span asp-validation-for="ServiceName" class="text-danger"></span>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="UserId" class="form-label fw-semibold">
+                        <i class="fas fa-user me-2"></i>User Id <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="UserId" class="form-control" placeholder="Enter user id" required />
+                    <span asp-validation-for="UserId" class="text-danger"></span>
+                </div>
+                <div class="form-group mb-3">
+                    <label asp-for="Password" class="form-label fw-semibold">
+                        <i class="fas fa-key me-2"></i>Password <span class="text-danger">*</span>
+                    </label>
+                    <input asp-for="Password" class="form-control" placeholder="Enter password" type="password" required />
+                    <span asp-validation-for="Password" class="text-danger"></span>
+                </div>
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Update Schema
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-secondary">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
