@@ -1,3 +1,4 @@
+using System.Data;
 using System.Diagnostics;
 using System.Security.Claims;
 using System.Threading.Channels;
@@ -5,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NCrontab;
+using Oracle.ManagedDataAccess.Client;
 using ReportManagerv2.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
@@ -51,7 +54,7 @@ public class HomeController : Controller
             r.Name,
             r.Description,
             Executions = r.Executions.Where(e => e.UserId == User.FindFirstValue(ClaimTypes.NameIdentifier)).OrderByDescending(e => e.ExecutionDate).Take(10),
-            ReportParameters = r.ReportParameters.Select(rp => new { rp.Name, rp.DefaultValue, rp.ViewControl })
+            ReportParameters = r.ReportParameters.Select(rp => new { rp.Name, rp.DefaultValue, rp.ViewControl,rp.IsRequired })
         }).FirstOrDefaultAsync();
 
         if (reportwithExecutions == null)
@@ -64,7 +67,7 @@ public class HomeController : Controller
             Id = reportwithExecutions.Id,
             Name = reportwithExecutions.Name,
             Description = reportwithExecutions.Description,
-            Parameters = reportwithExecutions.ReportParameters.Select(p => new ParameterViewModel { Name = p.Name, Value = p.DefaultValue ?? "", ViewControl = p.ViewControl }).ToList()
+            Parameters = reportwithExecutions.ReportParameters.Select(p => new ParameterViewModel { Name = p.Name, Value = p.DefaultValue ?? "", ViewControl = p.ViewControl,IsRequired=p.IsRequired }).ToList()
 
         };
 
@@ -152,6 +155,22 @@ public class HomeController : Controller
         {
             return NotFound(new { error = "Report not found" });
         }
+        //ensure required parameters are provieded
+        var missingParameters = new List<string>();
+        foreach (var param in report.parameters)
+        {
+            var providedParam = model.Parameters.FirstOrDefault(p => p.Name == param.Name);
+            if (param.DefaultValue == null && (providedParam == null || string.IsNullOrEmpty(providedParam.Value)))
+            {
+                missingParameters.Add(param.Name);
+            }
+        }
+        if (missingParameters.Any())
+        {
+            return BadRequest(new { error = $"Missing required parameters: {string.Join(", ", missingParameters)}" });
+        }
+       
+        //check if the report is already executing
 
         var exec = new Execution
         {
@@ -194,7 +213,80 @@ public class HomeController : Controller
         _logger.LogInformation($"Execution {exec.Id} created for report {report.Id}");
         return Json(new { success = true, executionId = exec.Id });
     }
+    [HttpPost]
+    public async Task<IActionResult> ScheduleReport([FromBody] ScheduleReportViewModel model)
+    {
+        //check if the model is not valid
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(new { error = "Invalid model state" });
+        }
+        //check if selected date is provided
+        if (model.SelectedDate == null)
+        {
+            return BadRequest(new { error = "scheduled date is required" });
+        }
+        if (string.IsNullOrEmpty(model?.ReportId) || string.IsNullOrEmpty(model?.CronExpression))
+        {
+            return BadRequest(new { error = "Report ID and cron expression are required" });
+        }
 
+        var report = await _context.Reports.Where(r => r.Id == model.ReportId)
+            .Select(r => new { r.Id, r.Name, r.SchemaId, r.ReportQuery })
+            .FirstOrDefaultAsync();
+            
+        if (report == null)
+        {
+            return NotFound(new { error = "Report not found" });
+        }
+
+        var job = new ScheduledJob
+        {
+            ProcedureName = report.Name,
+            
+            JobType = JobType.SqlStatement,
+            CronExpression = model.CronExpression,
+            IsActive = true,
+            CreatedById = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Anonymous",
+            Description = $"Scheduled job for report {report.Name}",
+            JobStatus = ExecutionStatus.Pending,
+           // NextRunAt = CrontabSchedule.Parse(model.CronExpression).GetNextOccurrence(DateTime.Now.AddMinutes(2)),
+           //assing nextrunat to selecteddate
+            NextRunAt = model.SelectedDate,// > DateTime.Now ? model.SelectedDate : CrontabSchedule.Parse(model.CronExpression).GetNextOccurrence(DateTime.Now.AddMinutes(2)),
+        
+            SchemaId = report.SchemaId,
+            SqlStatement = report.ReportQuery,
+            Parameters = model.Parameters?.Select(p => new ScheduledJobParameter
+            {
+                Name = p.Name,
+                Value = p.Value,
+                Direction = ParameterDirection.Input,
+                Type = OracleDbType.Varchar2
+            }).ToList() ?? new List<ScheduledJobParameter>()
+        };
+         var exec = new Execution
+        {
+            ReportId = report.Id,
+            ExecutionStatus = ExecutionStatus.Scheduled,
+            ExecutionType = ExecutionType.Job,
+            ScheduledJobId = job.Id,
+            
+
+            // get id of the user
+            UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Anonymous",
+
+
+            ExecutionParameters = model.Parameters.Select(p => new ExecutionParameter { Name = p.Name, Value = p.Value }).ToList()
+        };
+        _context.Executions.Add(exec);
+
+        _context.Add(job);
+        
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation($"Report {model.ReportId} scheduled with cron expression {model.CronExpression}");
+        return Json(new { executionId= exec.Id });
+    }
     [HttpPost]
     public async Task<IActionResult> CancelExecution(string executionId)
     {

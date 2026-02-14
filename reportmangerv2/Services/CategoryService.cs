@@ -41,7 +41,7 @@ public class CategoryService : ICategoryService
 
     public async Task<List<Category>> GetAllCategories()
     {
-        var categories = await _context.Categories.ToListAsync();
+        var categories = await _context.Categories.Include(c=>c.Reports).ToListAsync();
         return categories;
         
         

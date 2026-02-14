@@ -6,6 +6,7 @@ namespace reportmangerv2.Services
     public interface IExecutionNotificationService
     {
         Task NotifyExecutionCompleted(string executionId, string status, int duration, bool hasResult, string userId);
+        Task NotifyExecutionStarted(string executionId, string reportName,string userId);
     }
 
     public class ExecutionNotificationService : IExecutionNotificationService
@@ -21,5 +22,12 @@ namespace reportmangerv2.Services
         {
             await _hubContext.Clients.User(userId).SendAsync("ExecutionCompleted", executionId, status, duration, hasResult);
         }
+
+        public Task NotifyExecutionStarted(string executionId,string reportName, string userId)
+        {
+           
+           return _hubContext.Clients.User(userId).SendAsync("ExecutionStarted", executionId,reportName);
+        }
+
     }
 }

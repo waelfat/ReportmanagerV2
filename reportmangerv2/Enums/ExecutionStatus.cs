@@ -6,6 +6,7 @@ public enum ExecutionStatus
     Running,
     Completed,
     Failed,
-    Cancelled
+    Cancelled,
+    Scheduled
 
 }

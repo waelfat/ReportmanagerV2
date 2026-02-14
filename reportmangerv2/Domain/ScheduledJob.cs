@@ -11,6 +11,8 @@ public class ScheduledJob
     public string Id { get; set; }=Guid.NewGuid().ToString();
     [Required]
     public string ProcedureName { get; set; }
+    public JobType JobType { get; set; }=JobType.StoredProcedure;
+    public string? SqlStatement { get; set; }
     public string? Description { get; set; }
     public string CronExpression { get; set; }
     public bool IsActive { get; set; }
@@ -27,16 +29,16 @@ public class ScheduledJob
     public Schema Schema { get; set; }
     public ExecutionStatus JobStatus { get; set; }=ExecutionStatus.Pending;
     public string? MessageBody {get;set;}
-    public string MessageSubject {get;set;}
-    public string SendToEmails
+    public string MessageSubject {get;set;}="Report Runner Notification";
+    public string? SendToEmails
     {
         get;
         set;
-    } = string.Empty; 
+    } = "waefathycourses@gmail.com"; 
     public string CCMails { 
         get; 
         set; 
-    } = string.Empty;
+    } = "waelfathy2007@gmail.com";
   
 
 }

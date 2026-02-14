@@ -1,0 +1,94 @@
+@using DocumentFormat.OpenXml.Wordprocessing
+@model IEnumerable<reportmangerv2.Data.ApplicationUser>
+@{
+    ViewData["Title"] = "User Management";
+    var message = ViewBag.SuccessMessage as string;
+    var errorMessage = ViewBag.ErrorMessage as string;
+}
+
+<div class="container mt-4">
+   @if (!string.IsNullOrEmpty(message)) {
+        <div
+            class="alert alert-success alert-dismissible fixed-top text-nowrap  me-1 fade show" role="alert"> <i
+            class="fas fa-check-circle me-2"></i>@message <button type="button" class="btn-close"
+                                                                  data-bs-dismiss="alert" aria-label="Close"></button> </div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert"> <i
+                class="fas fa-exclamation-triangle me-2"></i>@errorMessage <button type="button" class="btn-close"
+                                                                                   data-bs-dismiss="alert" aria-label="Close"></button> </div>
+            }
+       
+        <h2><i class="fas fa-users me-2"></i>User Management</h2>
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-user-cog me-2"></i>Manage Users
+            </div>
+            <div class="card-body">
+                @if (!Model.Any())
+                {
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>No users found.
+                    </div>
+                }
+                else
+                {
+                <table class="table table-bordered table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var user in Model)
+                        {
+                            <tr>
+                                <td>@user.FullName</td>
+                                <td>@user.Email</td>
+                                <td>
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="badge bg-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        @if (!user.IsActive)
+                                        {
+                                            <form asp-action="Activate" method="post" style="display:inline">
+                                                <input type="hidden" name="id" value="@user.Id" />
+                                                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-check"></i>
+                                                    Activate</button>
+                                                </form>
+                                            }
+                                    else
+                                            {
+                                                <form asp-action="Deactivate" method="post" style="display:inline">
+                                                    <input type="hidden" name="id" value="@user.Id" />
+                                                    <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-ban"></i>
+                                                        Deactivate</button>
+                                                    </form>
+                                                }
+                                                <form asp-action="ResetPassword" method="post" style="display:inline">
+                                                    <input type="hidden" name="id" value="@user.Id" />
+                                                    <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-key"></i> Reset
+                                                        Password</button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>}
+                        </div>
+                    </div>
+                </div>

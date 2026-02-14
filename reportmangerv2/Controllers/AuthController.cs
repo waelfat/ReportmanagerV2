@@ -48,9 +48,12 @@ public class AuthController : Controller
                 await _userManager.AddClaimAsync(user, new("FullName", model.Name));
                 // add user to userRole
                 await _userManager.AddToRoleAsync(user, "UserRole");
+                return RedirectToAction("Login", "Auth");
                 
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                return RedirectToAction("Index", "Home");
+
+                
+                // await _signInManager.SignInAsync(user, isPersistent: false);
+                // return RedirectToAction("Index", "Home");
             }
             foreach (var error in result.Errors)
             {

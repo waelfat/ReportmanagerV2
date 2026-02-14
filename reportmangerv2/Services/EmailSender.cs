@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.Options;
 using MimeKit;
 using MailKit.Net.Smtp;
+using MailKit.Security;
 
 namespace reportmangerv2.Services;
 
@@ -89,9 +90,10 @@ public class EmailSender : IEmailSender
         {
             try
             {
+                client.ServerCertificateValidationCallback = (s, c, h, e) => true; // For testing only
                 //remove oath
                 client.AuthenticationMechanisms.Remove("XOAUTH2");
-                client.Connect(_settings.Server, _settings.Port, MailKit.Security.SecureSocketOptions.StartTls);
+                client.Connect(_settings.Server, _settings.Port,SecureSocketOptions.StartTls);
                 client.Authenticate(_settings.Username, _settings.Password);
                 client.Send(message);
                 client.Disconnect(true);

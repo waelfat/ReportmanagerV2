@@ -129,14 +129,24 @@ public class ExecutionService : BackgroundService
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
-                var execution = await context.Executions.FindAsync(executionId);
+                var execution = await context.Executions.Include(c=>c.ScheduledJob).FirstOrDefaultAsync(c=>c.Id== executionId);
                 if (execution != null)
                 {
                     execution.ExecutionStatus = ExecutionStatus.Completed;
                     execution.ResultFilePath = filePathFinal;
                     execution.Duration = DateTime.Now - execution.ExecutionDate;
+                    //if scheduledjobid is not null then its a scheduled query modify job and deactivated it
+                    if (execution.ScheduledJob != null)
+                    {
+                        execution.ScheduledJob.JobStatus = ExecutionStatus.Pending;
+                   
+                        execution.ScheduledJob.IsActive = false;
 
+                        
+                    }
                     await context.SaveChangesAsync();
+
+           
                     _currentActiveExecutionsService.RemoveExecution(executionId);
 
                     // Send SignalR notification
@@ -147,6 +157,8 @@ public class ExecutionService : BackgroundService
                         !string.IsNullOrEmpty(filePathFinal),
                         message.UserId
                     );
+                    
+
 
                     _logger.LogInformation($"Completed execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
                 }
@@ -164,6 +176,7 @@ public class ExecutionService : BackgroundService
             // Update execution status to Failed or Cancelled
             try
             {
+                //The filename, directory name, or volume label syntax is incorrect. : 'E:\projects\dotnetprojects\vscodeprojects\reportmanagerv2\reportmangerv2\Reports\select * from AREAS_LIST where AREA_ID > :TotalAmount-20260214_144206_ed0e3.xlsx'.
                 using (var scope = _serviceScopeFactory.CreateScope())
                 {
                     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -242,44 +255,44 @@ public class ExecutionService : BackgroundService
         connection.Open();
 
         // Log current DB user and current schema and try to resolve unqualified table names (helps when different schema owns the table)
-        try
-        {
-            using var infoCmd = connection.CreateCommand();
-            infoCmd.CommandText = "SELECT USER FROM DUAL";
-            var dbUser = infoCmd.ExecuteScalar()?.ToString();
-            infoCmd.CommandText = "SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL";
-            var currentSchema = infoCmd.ExecuteScalar()?.ToString();
-            _logger.LogInformation("Oracle connection opened. DB User = {DbUser}, Current Schema = {CurrentSchema}", dbUser, currentSchema);
+        // try
+        // {
+        //     using var infoCmd = connection.CreateCommand();
+        //     infoCmd.CommandText = "SELECT USER FROM DUAL";
+        //     var dbUser = infoCmd.ExecuteScalar()?.ToString();
+        //     infoCmd.CommandText = "SELECT SYS_CONTEXT('USERENV','CURRENT_SCHEMA') FROM DUAL";
+        //     var currentSchema = infoCmd.ExecuteScalar()?.ToString();
+        //     _logger.LogInformation("Oracle connection opened. DB User = {DbUser}, Current Schema = {CurrentSchema}", dbUser, currentSchema);
 
-            // If the SQL references a known table (e.g. AREAS_LIST) check its owner and set session schema so unqualified names resolve
-            const string lookFor = "AREAS_LIST";
-            if (sqlStatement.IndexOf(lookFor, StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                infoCmd.Parameters.Clear();
-                infoCmd.CommandText = "SELECT OWNER FROM ALL_OBJECTS WHERE UPPER(OBJECT_NAME) = :name AND ROWNUM = 1";
-                infoCmd.Parameters.Add(new OracleParameter("name", lookFor.ToUpper()));
-                var owner = infoCmd.ExecuteScalar()?.ToString();
-                if (!string.IsNullOrEmpty(owner))
-                {
-                    _logger.LogInformation("Found object {ObjectName} owned by {Owner}", lookFor, owner);
-                    if (!string.Equals(owner, currentSchema, StringComparison.OrdinalIgnoreCase))
-                    {
-                        using var alterCmd = connection.CreateCommand();
-                        alterCmd.CommandText = ($"ALTER SESSION SET CURRENT_SCHEMA = {owner}");
-                        alterCmd.ExecuteNonQuery();
-                        _logger.LogInformation("Session CURRENT_SCHEMA set to {Owner} to resolve unqualified object names", owner);
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("Object {ObjectName} not found in ALL_OBJECTS for this connection", lookFor);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error while checking object ownership / setting CURRENT_SCHEMA");
-        }
+        //     // If the SQL references a known table (e.g. AREAS_LIST) check its owner and set session schema so unqualified names resolve
+        //     const string lookFor = "AREAS_LIST";
+        //     if (sqlStatement.IndexOf(lookFor, StringComparison.OrdinalIgnoreCase) >= 0)
+        //     {
+        //         infoCmd.Parameters.Clear();
+        //         infoCmd.CommandText = "SELECT OWNER FROM ALL_OBJECTS WHERE UPPER(OBJECT_NAME) = :name AND ROWNUM = 1";
+        //         infoCmd.Parameters.Add(new OracleParameter("name", lookFor.ToUpper()));
+        //         var owner = infoCmd.ExecuteScalar()?.ToString();
+        //         if (!string.IsNullOrEmpty(owner))
+        //         {
+        //             _logger.LogInformation("Found object {ObjectName} owned by {Owner}", lookFor, owner);
+        //             if (!string.Equals(owner, currentSchema, StringComparison.OrdinalIgnoreCase))
+        //             {
+        //                 using var alterCmd = connection.CreateCommand();
+        //                 alterCmd.CommandText = ($"ALTER SESSION SET CURRENT_SCHEMA = {owner}");
+        //                 alterCmd.ExecuteNonQuery();
+        //                 _logger.LogInformation("Session CURRENT_SCHEMA set to {Owner} to resolve unqualified object names", owner);
+        //             }
+        //         }
+        //         else
+        //         {
+        //             _logger.LogWarning("Object {ObjectName} not found in ALL_OBJECTS for this connection", lookFor);
+        //         }
+        //     }
+        // }
+        // catch (Exception ex)
+        // {
+        //     _logger.LogWarning(ex, "Error while checking object ownership / setting CURRENT_SCHEMA");
+        // }
 
         OracleDataReader reader = command.ExecuteReader();
         return reader;

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using reportmangerv2.Domain;
+using reportmangerv2.Enums;
 
 namespace reportmangerv2.Data;
 
@@ -114,7 +115,9 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
         v=>JsonSerializer.Deserialize<List<ScheduledJobParameter>>(v, jsonOptions)?? new List<ScheduledJobParameter>()
        )
        .Metadata.SetValueComparer(scheduledJobComparer);
+       entity.Property(s=>s.JobType).HasConversion<string>();
        entity.Property(s=>s.JobStatus).HasConversion<string>();
+       entity.Property(s=>s.JobType).HasDefaultValue(JobType.StoredProcedure);
        });
        //build hierarchy for Category
        modelBuilder.Entity<Category>(entity =>

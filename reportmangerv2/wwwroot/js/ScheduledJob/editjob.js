@@ -210,7 +210,7 @@ document.getElementById('editJobForm').addEventListener('submit', async function
             if (!input.value || !input.value.trim()) {
                 throw new Error("Value is required for Input parameters");
             }
-            debugger;
+       
             // ensure the value is valid for the parameter type
             var paramType=input.getAttribute('data-type').toLowerCase();
             if(input.getAttribute('data-type').toLowerCase().includes('date') && isNaN(Date.parse(input.value))){
