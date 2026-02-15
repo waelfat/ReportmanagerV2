@@ -34,14 +34,14 @@ connection.on(
 function IntializePartial(reportId) {
   var form = $(`#executeReportForm-${reportId}`);
   form.on("submit", function (e) {
-    debugger;
+    // debugger;
     e.preventDefault();
-    debugger;
+    // debugger;
     var $btn = $(`#executeBtn-${reportId}`);
     var $status = $(`#executeStatus-${reportId}`);
     var $result = $(`#executeResult-${reportId}`);
     var isValid = true;
-    debugger;
+    // debugger;
     const req = form.find("[data-IsRequired='true']");
     req.each(function () {
       if (!$(this).val()) {

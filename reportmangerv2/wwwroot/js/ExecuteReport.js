@@ -108,7 +108,7 @@ $(function () {
                 alert('Report scheduled successfully!');
                 $(`#scheduleSection-${reportId}`).collapse('hide');
                 $btn.prop('disabled', false).html('<i class="fas fa-calendar-check me-2"></i>Schedule Report');
-                debugger;
+                // debugger;
                 addExecutionToTable(data.executionId,true)
             },
             error: function(xhr) {

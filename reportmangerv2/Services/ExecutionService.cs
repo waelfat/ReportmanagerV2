@@ -112,7 +112,7 @@ public class ExecutionService : BackgroundService
                 _logger.LogInformation($"Started execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
 
             }
-            // await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
+             await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleDataReader reader = ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
 
@@ -326,7 +326,7 @@ public class ExecutionService : BackgroundService
                 await context.SaveChangesAsync(linkedTokenSource.Token);
                 executionId = execution.Id;
             }
-            await Task.Delay(TimeSpan.FromSeconds(2), linkedTokenSource.Token); // Simulate some initial delay
+      //q   7      await Task.Delay(TimeSpan.FromSeconds(100), linkedTokenSource.Token); // Simulate some initial delay
 
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleCommand command = new OracleCommand(message.SQLStatement, connection);

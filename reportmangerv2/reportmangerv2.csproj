@@ -10,6 +10,7 @@
     <Folder Include="Components\" />
     <Folder Include="Data\" />
     <Folder Include="Enums\" />
+    <Folder Include="Events\" />
     <Folder Include="Views\Auth\" />
     <Folder Include="Views\ScheduledJob\" />
     <Folder Include="Views\Shared\Components\" />

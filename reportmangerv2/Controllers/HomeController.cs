@@ -270,8 +270,7 @@ public class HomeController : Controller
             ExecutionStatus = ExecutionStatus.Scheduled,
             ExecutionType = ExecutionType.Job,
             ScheduledJobId = job.Id,
-            
-
+            ExecutionDate=model.SelectedDate ?? DateTime.Now,
             // get id of the user
             UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Anonymous",
 
@@ -290,19 +289,24 @@ public class HomeController : Controller
     [HttpPost]
     public async Task<IActionResult> CancelExecution(string executionId)
     {
+ 
         if (string.IsNullOrEmpty(executionId))
         {
             return BadRequest(new { error = "Execution ID is required" });
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var execution = await _context.Executions.FirstOrDefaultAsync(e => e.Id == executionId && e.UserId == userId);
+        var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync (e => e.Id == executionId );
         
         if (execution == null)
         {
             return NotFound(new { error = "Execution not found" });
         }
-
+        //check if the execution is scheduled 
+       if(execution.ExecutionType==ExecutionType.Job)
+       {
+         return await CancelScheduled(execution);
+       }
         if (execution.ExecutionStatus != ExecutionStatus.Running && execution.ExecutionStatus != ExecutionStatus.Pending)
         {
             return BadRequest(new { error = "Execution cannot be cancelled" });
@@ -312,6 +316,42 @@ public class HomeController : Controller
         _currentActiveExecutionsService.CancelExecution(executionId);
         
         _logger.LogInformation($"Execution {executionId} cancelled by user {userId}");
+        return Json(new { success = true });
+    }
+     [HttpPost]
+     private async Task<IActionResult> CancelScheduled(Execution execution)
+    {
+        //get job from executionid
+       
+       
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+      //  var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId) ;
+        
+        if (execution == null)
+        {
+            return NotFound(new { error = "Execution not found" });
+        }
+      
+        if (execution.ScheduledJob == null)
+        {
+            return NotFound(new { error = "Scheduled job not found" });
+        }
+        // Cancel the scheduled job 
+        // if user isnot the creator or is not admin
+        if (!(User.IsInRole("Admin") || execution.ScheduledJob.CreatedById == userId))
+        {
+            return Forbid();
+        }
+      
+        execution.ScheduledJob.IsActive = false;
+        execution.ExecutionStatus = ExecutionStatus.Cancelled;
+        await _context.SaveChangesAsync();
+        //check if the exection is currently running
+        if (_currentActiveExecutionsService.IsExecutionActive(execution.Id))
+        {
+            _currentActiveExecutionsService.CancelExecution(execution.Id);
+        }
+        
         return Json(new { success = true });
     }
     [HttpPost]

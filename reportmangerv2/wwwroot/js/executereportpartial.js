@@ -119,12 +119,14 @@ function IntializePartial(reportId) {
   $(document).on("click", "#btnConfirmCancel", function () {
     //var confirmcancelid = $(this).data('execution-id');
     console.log(confirmcancelid);
-    $.ajax({
+    $.ajax({ 
       url: "/Home/CancelExecution",
       method: "POST",
       data: { executionId: confirmcancelid },
       success: function () {
         showNotification("Cancelled", confirmcancelid);
+        // Update the row appearance and remove cancel button for all types
+        updateExecutionRow(confirmcancelid, "Cancelled", 0, false);
       },
       error: function () {
         alert("Failed to cancel execution ");
@@ -223,6 +225,10 @@ function updateExecutionRow(executionId, status, duration, hasResult) {
     statusBadge =
       '<span class="badge bg-secondary"><i class="fas fa-ban me-1"></i>Cancelled</span>';
     rowClass = "table-secondary";
+  }else if (status === "Running") {
+    statusBadge =
+      '<span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin me-1"></i>Running</span>';
+    rowClass = "table-warning";
   }
 
   $row.removeClass("table-warning").addClass(rowClass);
