@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NCrontab;
 using reportmangerv2.Data;
 using reportmangerv2.Enums;
 
@@ -15,6 +16,8 @@ public class ScheduledJob
     public string? SqlStatement { get; set; }
     public string? Description { get; set; }
     public string CronExpression { get; set; }
+    public ScheduledType? ScheduledType { get; set; } 
+    
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastRunAt { get; set; }
@@ -39,6 +42,12 @@ public class ScheduledJob
         get; 
         set; 
     } = "waelfathy2007@gmail.com";
+    public void SetNextRunTime()
+    {
+        if (string.IsNullOrWhiteSpace(CronExpression))
+            return;
+        NextRunAt = CrontabSchedule.Parse(CronExpression).GetNextOccurrence(DateTime.Now);
+    }
   
 
 }

@@ -14,7 +14,7 @@ public class CurrentActiveExecutionsService
 
     public bool AddExecution(string ExecutionId,string reportId, string UserId, DateTime executionTime, CancellationTokenSource cancellationTokenSource)
     {
-      return  _activeExecutions.TryAdd(ExecutionId, new ExecutionInfo {  StartTime = executionTime, UserId = UserId, CancellationTokenSource = cancellationTokenSource, ReportId=reportId });
+      return  _activeExecutions.TryAdd(ExecutionId, new ExecutionInfo {ExecutionId=ExecutionId,  StartTime = executionTime, UserId = UserId, CancellationTokenSource = cancellationTokenSource, ReportId=reportId });
     }
 
     public bool IsExecutionActive(string ExecutionId)
@@ -38,6 +38,7 @@ public class CurrentActiveExecutionsService
         RemoveExecution(ExecutionId);
         return success;
     }
+    public IEnumerable<ExecutionInfo> GetAllExecutions()=> _activeExecutions.Values;
 
 }
 public class ExecutionInfo
@@ -45,6 +46,8 @@ public class ExecutionInfo
     public required CancellationTokenSource CancellationTokenSource { get; set; } //= new CancellationTokenSource();
     public DateTime StartTime { get; set; }=DateTime.Now;
     public required string UserId { get; set; } 
-    public string ReportId { get; set; } = "";
+    public string? ReportId { get; set; } 
+    public string ExecutionId { get; set; } //= Guid.NewGuid().ToString();
+    public string? ScheduledJobId { get; set; }
     
 }

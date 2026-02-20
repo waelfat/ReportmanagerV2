@@ -373,8 +373,10 @@ public class ScheduledJobController:Controller
         public async Task<IActionResult> Index()
     {
         var jobs = await _context.ScheduledJobs
+       // .Where(j=>j.Executions.Any(e=>e.ExecutionType!= Enums.ExecutionType.ScheduledQuery))
             .Include(j=>j.Schema)
             .Include(j=>j.CreatedBy)
+            .Where(j=>j.ScheduledType == Enums.ScheduledType.Recurring || (j.ScheduledType == Enums.ScheduledType.Once && j.Executions.All(e=>e.ExecutionType== Enums.ExecutionType.ScheduledQuery)))
             .Select(j=>new ScheduledJobViewModel
             {
                 Id=j.Id,

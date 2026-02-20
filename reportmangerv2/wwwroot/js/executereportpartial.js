@@ -8,6 +8,9 @@ if (typeof signalR === "undefined") {
 
 var connection = new signalR.HubConnectionBuilder()
   .withUrl("/executionHub")
+  .configureLogging(signalR.LogLevel.Information)
+  //configur with automatic reconnect
+  .withAutomaticReconnect()
   .build();
 
 connection
@@ -18,21 +21,35 @@ connection
   .catch(function (err) {
     console.error("SignalR connection failed: ", err);
   });
-  connection.on("ExecutionStarted",
-  function (executionId,reportName) {
-    console.log(`Execution started: ${executionId}`);
-    updateExecutionRow(executionId, "Running", 0, false);
-    showNotification("Started", reportName);
-    // You can add logic here to update the UI when an execution starts
-  },)
+
+
 
 connection.on(
   "ExecutionCompleted",
   function (executionId, status, duration, hasResult) {
+    //debugger;
     updateExecutionRow(executionId, status, duration, hasResult);
-    showNotification(status, executionId);
+    //if status is not In Progress show notification
+    if(status !=="In Progress")
+     showNotification(status, executionId);
   },
 );
+connection.on("ExecutionStarted",
+  function (executionId,reportName) {
+    console.log(`Execution started: ${executionId}`);
+    updateExecutionRow(executionId, "Running", 0, false);
+    //showNotification("Started", reportName);
+    // You can add logic here to update the UI when an execution starts
+  },
+)
+connection.on("ExecutionProgress", function (executionId, progress) {
+  console.log(`Execution ${executionId} progress: ${progress}%`);
+  // Update progress bar or any other UI element
+  updateExecutionRow(executionId, "Progress", 0, false,progress);
+ // showNotification("In Progress", executionId);
+});
+
+
 
 
 
@@ -206,7 +223,8 @@ if(scheduled){
   $tbody.prepend(newRow);
 }
 
-function updateExecutionRow(executionId, status, duration, hasResult) {
+function updateExecutionRow(executionId, status, duration, hasResult,progressNum) {
+  console.log(`Updating execution ${executionId} to status ${status}`);
   var $tbody = $(".executions-table tbody");
   var $row = $tbody.find(`tr[data-execution-id="${executionId}"]`);
   if ($row.length === 0) return;
@@ -229,7 +247,14 @@ function updateExecutionRow(executionId, status, duration, hasResult) {
     statusBadge =
       '<span class="badge bg-warning text-dark"><i class="fas fa-spinner fa-spin me-1"></i>Running</span>';
     rowClass = "table-warning";
+  }else if (status === "Progress") {
+    statusBadge =
+    //add progress number
+    `<span class="badge bg-info text-dark"><i class="fas fa-spinner fa-spin me-1"></i>Progress #${progressNum}</span>`;
+ 
+    rowClass = "table-info";
   }
+
 
   $row.removeClass("table-warning").addClass(rowClass);
   $row.find("td:eq(1)").html(statusBadge);
@@ -241,7 +266,7 @@ function updateExecutionRow(executionId, status, duration, hasResult) {
         `<span class="badge bg-light text-dark"><i class="fas fa-clock me-1"></i>${duration}s</span>`,
       );
   }
-
+if( status === "Progress")return;
   if (hasResult) {
     $row.find("td:eq(3)").html(`
                 <div class="btn-group" role="group">
@@ -266,6 +291,8 @@ function updateExecutionRow(executionId, status, duration, hasResult) {
 
 
 function showNotification(status, executionId) {
+  console.log(status);
+  debugger;
   var message =
     status === "Succeeded"
       ? "Report execution completed successfully!"

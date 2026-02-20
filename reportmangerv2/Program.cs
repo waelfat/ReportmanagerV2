@@ -5,6 +5,7 @@ using Oracle.ManagedDataAccess.Client;
 using ReportManagerv2.Services;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
+using reportmangerv2.Events;
 using reportmangerv2.Hubs;
 using reportmangerv2.Services;
 
@@ -48,11 +49,21 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
     builder.Services.AddScoped<ICategoryService,CategoryService>();
 builder.Services.AddHostedService<ExecutionService>();
 builder.Services.AddSingleton(Channel.CreateUnbounded<ExecutionRequest>());
+builder.Services.AddSingleton<IEventPublisher,EventPublisher>();
+builder.Services.AddScoped<IEventHandler<ExecutionCompletedEvent>,ExecutionCompletedEventHandler>();
+builder.Services.AddScoped<IEventHandler<ExecutionStartedEvent>,ExecutionStartedEventHandler>();
+builder.Services.AddScoped<IEventHandler<ReportProgressEvent>,ReportProgressEventHandler>();
+// builder.Services.AddScoped<IEventHandler<ExecutionCancelEvent>,ExecutionCancelEventHandler>();
+
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
 builder.Services.AddScoped<IExecutionNotificationService, ExecutionNotificationService>();
  builder.Services.AddHostedService<ScheduledJobsExecuterService>();
 var app = builder.Build();
-
+// builder.Services.AddSingleton<Channel<ExecutionRequest>>(sp =>
+// {
+//     var channel = Channel.CreateUnbounded<ExecutionRequest>();
+//     return channel;
+// });
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -60,11 +71,9 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+/*
 
-
-
-
-
+*/
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthentication();

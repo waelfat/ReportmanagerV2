@@ -268,7 +268,7 @@ public class HomeController : Controller
         {
             ReportId = report.Id,
             ExecutionStatus = ExecutionStatus.Scheduled,
-            ExecutionType = ExecutionType.Job,
+            ExecutionType = ExecutionType.ScheduledQuery,
             ScheduledJobId = job.Id,
             ExecutionDate=model.SelectedDate ?? DateTime.Now,
             // get id of the user
@@ -303,7 +303,7 @@ public class HomeController : Controller
             return NotFound(new { error = "Execution not found" });
         }
         //check if the execution is scheduled 
-       if(execution.ExecutionType==ExecutionType.Job)
+       if(execution.ExecutionType==ExecutionType.ScheduledQuery)
        {
          return await CancelScheduled(execution);
        }
@@ -338,13 +338,18 @@ public class HomeController : Controller
         }
         // Cancel the scheduled job 
         // if user isnot the creator or is not admin
-        if (!(User.IsInRole("Admin") || execution.ScheduledJob.CreatedById == userId))
+        if (!(User.IsInRole("Admin") || execution.ScheduledJob.CreatedById != userId))
         {
             return Forbid();
         }
-      
+        if (execution.ExecutionStatus==ExecutionStatus.Completed || execution.ExecutionStatus == ExecutionStatus.Failed)
+        {
+            return BadRequest(new { error = "Scheduled execution finished "});
+        }
         execution.ScheduledJob.IsActive = false;
+        execution.ScheduledJob.JobStatus=ExecutionStatus.Cancelled;
         execution.ExecutionStatus = ExecutionStatus.Cancelled;
+
         await _context.SaveChangesAsync();
         //check if the exection is currently running
         if (_currentActiveExecutionsService.IsExecutionActive(execution.Id))
@@ -363,7 +368,7 @@ public class HomeController : Controller
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var execution = await _context.Executions.FirstOrDefaultAsync(e => e.Id == executionId && e.UserId == userId);
+        var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId && e.UserId == userId);
 
         if (execution == null)
         {
@@ -371,7 +376,23 @@ public class HomeController : Controller
         }
 
         // Delete the execution
+        if (execution.ExecutionStatus == ExecutionStatus.Running)
+        {
+            return BadRequest(new { error = "Running executions cannot be deleted" });
+        }
+        if (execution.ExecutionType == ExecutionType.ScheduledQuery)
+        {
+            if (execution.ScheduledJob != null && execution.ScheduledJob.CreatedById != userId && !User.IsInRole("Admin"))
+            {
+                return Forbid();
+            }
+            if (execution.ScheduledJob != null)
+            {
+                _context.ScheduledJobs.Remove(execution.ScheduledJob);
+            }
+        }
         _context.Executions.Remove(execution);
+
         await _context.SaveChangesAsync();
 
         // Delete the result file if it exists

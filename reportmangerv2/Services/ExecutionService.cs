@@ -1,5 +1,6 @@
 using System;
 using System.Data;
+using System.Diagnostics.Metrics;
 using System.Threading.Channels;
 
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using Oracle.ManagedDataAccess.Types;
 using reportmangerv2.Data;
 using reportmangerv2.Domain;
 using reportmangerv2.Enums;
+using reportmangerv2.Events;
 using reportmangerv2.Services;
 
 namespace ReportManagerv2.Services;
@@ -22,12 +24,15 @@ public class ExecutionService : BackgroundService
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly IConfiguration _configuration;
     private readonly IEmailSender _emailSender;
+    private readonly IEventPublisher _eventPublisherl;
     public ExecutionService(Channel<ExecutionRequest> channel, ILogger<ExecutionService> logger,
     CurrentActiveExecutionsService currentActiveExecutionsService,
     IServiceScopeFactory serviceScopeFactory,
     IWebHostEnvironment webHostEnvironment,
     IEmailSender emailSender,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    IEventPublisher eventPublisher
+    )
     {
         _channel = channel;
         _logger = logger;
@@ -36,42 +41,55 @@ public class ExecutionService : BackgroundService
         _webHostEnvironment = webHostEnvironment;
         _configuration = configuration;
         _emailSender = emailSender;
+        _eventPublisherl = eventPublisher;
 
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var message in _channel.Reader.ReadAllAsync(stoppingToken))
+
+        try
         {
-            try
+            await foreach (var message in _channel.Reader.ReadAllAsync(stoppingToken))
             {
-                //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
-                _logger.LogInformation($"Execution Type: {message.Type}");
-                switch (message.Type)
+                try
                 {
-                    case ExecutionRequesType.SqlStatement:
-                        await ProcessExecutions(message, stoppingToken);
-                        break;
-                    case ExecutionRequesType.StoredProcedure:
-                        await ProcessStoredProcedureExecutions(message, stoppingToken);
-                        break;
-                    default:
-                        _logger.LogWarning($"Unknown execution type: {message.Type}");
-                        throw new ArgumentOutOfRangeException(nameof(message.Type), message.Type, null);
+                    //  _logger.LogInformation($"Processing report execution for report {message.ReportTitle} with Execution ID {message.ExecutionId}");
+                    _logger.LogInformation($"Execution Type: {message.Type}");
+                    switch (message.Type)
+                    {
+                        case ExecutionRequesType.SqlStatement:
+                            await ProcessExecutions(message, stoppingToken);
+                            break;
+                        case ExecutionRequesType.StoredProcedure:
+                            await ProcessStoredProcedureExecutions(message, stoppingToken);
+                            break;
+                        default:
+                            _logger.LogWarning($"Unknown execution type: {message.Type}");
+                            throw new ArgumentOutOfRangeException(nameof(message.Type), message.Type, null);
+                    }
+                    // if (message.Type=="SQLSTATEMENT")await ProcessExecutions(message, stoppingToken);
+                    // if (message.Type=="PROCEDURE") await ProcessStoredProcedureExecutions(message, stoppingToken); 
                 }
-                // if (message.Type=="SQLSTATEMENT")await ProcessExecutions(message, stoppingToken);
-                // if (message.Type=="PROCEDURE") await ProcessStoredProcedureExecutions(message, stoppingToken); 
+                catch (OperationCanceledException)
+                {
+                    _logger.LogInformation("Report execution was cancelled.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing report execution.");
+                }
             }
-            catch (OperationCanceledException)
-            {
-                _logger.LogInformation("Report execution was cancelled.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing report execution.");
-            }
+
         }
-
-
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // swallow the exception
+            _logger.LogInformation("ExecutionService is stopping due to cancellation.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in ExecutionService.");
+        }
     }
     private async Task ProcessExecutions(ExecutionRequest message, CancellationToken stoppingToken)
     {
@@ -90,7 +108,6 @@ public class ExecutionService : BackgroundService
                 // Here you would add the logic to execute the report based on the message details
                 // For example, fetch the report details from the database
 
-
                 // Process the report execution
                 //load the executionparameters
                 var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == message.ExecutionId) ?? throw new Exception("Execution not found");
@@ -98,9 +115,15 @@ public class ExecutionService : BackgroundService
                 //execution.ExecutionDate = DateTime.UtcNow; // Set actual start time
                 //load exection in 
                 executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter(p.Name, (object?)p.Value ?? DBNull.Value)).ToArray();
+                await _eventPublisherl.PublishAsync(new ExecutionStartedEvent
+                {
+                    ExecutionId = message.ExecutionId,
+                    UserId = message.UserId,
+                }, linkedTokenSource.Token);
 
 
                 await context.SaveChangesAsync(linkedTokenSource.Token);
+
                 if (execution == null) throw new Exception("Execution not found");
                 executionId = execution.Id;
                 var added = _currentActiveExecutionsService.AddExecution(message.ExecutionId, message.Id, message.UserId, execution.ExecutionDate, linkedTokenSource);
@@ -112,9 +135,9 @@ public class ExecutionService : BackgroundService
                 _logger.LogInformation($"Started execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
 
             }
-             await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
-            OracleConnection connection = new OracleConnection(message.ConnectionString);
-            OracleDataReader reader = ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
+            //  await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
+            OracleConnection connection = new(message.ConnectionString);
+            OracleDataReader reader = await ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
 
 
             var filePathFinal = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
@@ -124,7 +147,12 @@ public class ExecutionService : BackgroundService
 
             await reader.CloseAsync();
             await connection.CloseAsync();
+            //linkedTokenSource.Token.ThrowIfCancellationRequested();
             // Update execution status
+            #region  appdbcontextmethod
+            /*
+            
+            
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -163,9 +191,43 @@ public class ExecutionService : BackgroundService
                     _logger.LogInformation($"Completed execution of report {message.ReportTitle} for user {message.UserId} with Execution ID {execution.Id}");
                 }
             }
+            
+            
+            
+            */
+
+
+            #endregion
+
+            ExecutionCompletedEvent completed = new ExecutionCompletedEvent()
+            {
+                ExecutionId = executionId,
+                ExecutionStatus = ExecutionStatus.Completed,
+                IsSuccessful = true,
+                ResultFilePaths = filePathFinal,
+                ErrorMessage = string.Empty,
+                UserId = message.UserId
+            };
+            await _eventPublisherl.PublishAsync(completed, linkedTokenSource.Token);
             Console.WriteLine($"Executing report {message.ReportTitle} with parameters:");
 
             Console.WriteLine($"Report {message.ReportTitle} execution completed.");
+
+        }
+        catch (OperationCanceledException)
+        {
+            var reason = stoppingToken.IsCancellationRequested ? "Host is shutting down" : $"User{message.UserId} cancelled execution";
+            _logger.LogInformation($"Report {message.ReportTitle} execution was cancelled. Reason: {reason}");
+            ExecutionCompletedEvent cancelled = new()
+            {
+                ExecutionId = executionId,
+                ExecutionStatus = ExecutionStatus.Cancelled,
+                IsSuccessful = false,
+                ResultFilePaths = string.Empty,
+                ErrorMessage = reason,
+                UserId = message.UserId
+            };
+            await _eventPublisherl.PublishAsync(cancelled);
 
         }
 
@@ -174,41 +236,54 @@ public class ExecutionService : BackgroundService
             _logger.LogError(ex, "Error logging report execution start.");
             _logger.LogInformation($"Report {message.ReportTitle} execution was cancelled.");
             // Update execution status to Failed or Cancelled
-            try
+
+            //The filename, directory name, or volume label syntax is incorrect. : 'E:\projects\dotnetprojects\vscodeprojects\reportmanagerv2\reportmangerv2\Reports\select * from AREAS_LIST where AREA_ID > :TotalAmount-20260214_144206_ed0e3.xlsx'.
+            #region usingadodirectly
+            /*
+            using (var scope = _serviceScopeFactory.CreateScope())
             {
-                //The filename, directory name, or volume label syntax is incorrect. : 'E:\projects\dotnetprojects\vscodeprojects\reportmanagerv2\reportmangerv2\Reports\select * from AREAS_LIST where AREA_ID > :TotalAmount-20260214_144206_ed0e3.xlsx'.
-                using (var scope = _serviceScopeFactory.CreateScope())
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
+                var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == executionId);
+                if (execution != null)
                 {
-                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    var notificationService = scope.ServiceProvider.GetRequiredService<IExecutionNotificationService>();
-                    var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == executionId);
-                    if (execution != null)
-                    {
-                        execution.ExecutionStatus = ex is OperationCanceledException ? ExecutionStatus.Cancelled : ExecutionStatus.Failed;
-                        execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
-                        execution.ErrorMessage = ex is OperationCanceledException ? "Execution was cancelled by user." : "Execution failed.\n" + ex.Message;
-                        execution.ResultFilePath = null;
+                    execution.ExecutionStatus = ex is OperationCanceledException ? ExecutionStatus.Cancelled : ExecutionStatus.Failed;
+                    execution.Duration = DateTime.UtcNow - execution.ExecutionDate;
+                    execution.ErrorMessage = ex is OperationCanceledException ? "Execution was cancelled by user." : "Execution failed.\n" + ex.Message;
+                    execution.ResultFilePath = null;
 
-                        await context.SaveChangesAsync();
-                        _currentActiveExecutionsService.RemoveExecution(executionId);
+                    await context.SaveChangesAsync();
+                    _currentActiveExecutionsService.RemoveExecution(executionId);
 
-                        // Send SignalR notification
-                        await notificationService.NotifyExecutionCompleted(
-                            executionId,
-                            ex is OperationCanceledException ? "Cancelled" : "Failed",
-                            (int)execution.Duration.TotalSeconds,
-                            false,
-                            message.UserId
-                        );
+                    // Send SignalR notification
+                    await notificationService.NotifyExecutionCompleted(
+                        executionId,
+                        ex is OperationCanceledException ? "Cancelled" : "Failed",
+                        (int)execution.Duration.TotalSeconds,
+                        false,
+                        message.UserId
+                    );
 
-                        _logger.LogInformation($"Cancelled execution of report {message.Id} for user {message.UserId} with Execution ID {execution.Id}");
-                    }
+                    _logger.LogInformation($"Cancelled execution of report {message.Id} for user {message.UserId} with Execution ID {execution.Id}");
                 }
             }
-            catch (Exception saveErrorEx)
+            */
+            #endregion
+            ExecutionCompletedEvent @event = new()
             {
-                _logger.LogError(saveErrorEx, "Error logging report execution cancellation.");
-            }
+                ExecutionId = executionId,
+                ExecutionStatus = ExecutionStatus.Failed,
+                IsSuccessful = false,
+                ResultFilePaths = string.Empty,
+                ErrorMessage = ex.Message,
+                UserId = message.UserId
+            };
+            await _eventPublisherl.PublishAsync(@event);
+
+        }
+        finally
+        {
+            executionCancellationTokenSource.Dispose();
         }
         //delay for 5 minutes to simulate long running report
 
@@ -240,19 +315,28 @@ public class ExecutionService : BackgroundService
                 worksheet.Cell(currentRow, i + 1).Value = reader.GetValue(i).ToString();
             }
             currentRow++;
+            // await for 2 seconds
+
+            if (currentRow % 10 == 0)
+            {
+                // raise event Progress
+                await _eventPublisherl.PublishAsync(new ReportProgressEvent() { ExecutionId = message.ExecutionId, ProgressRowsNumber = currentRow, UserId = message.UserId });
+
+            }
+            //await Task.Delay(2000, cancellationToken);
         }
-        cancellationToken.ThrowIfCancellationRequested();
+        //cancellationToken.ThrowIfCancellationRequested();
         workbook.SaveAs(filePath);
         return filePath;
     }
-    private OracleDataReader ExecuteReportSQLStatement(string sqlStatement, OracleConnection connection, OracleParameter[] parameters, CancellationToken executionCancellationToken)
+    private async Task<OracleDataReader> ExecuteReportSQLStatement(string sqlStatement, OracleConnection connection, OracleParameter[] parameters, CancellationToken executionCancellationToken)
     {
         var command = connection.CreateCommand();
         command.CommandText = sqlStatement;
         // Add parameters to the command
         command.Parameters.AddRange(parameters);
 
-        connection.Open();
+        await connection.OpenAsync(executionCancellationToken);
 
         // Log current DB user and current schema and try to resolve unqualified table names (helps when different schema owns the table)
         // try
@@ -294,7 +378,7 @@ public class ExecutionService : BackgroundService
         //     _logger.LogWarning(ex, "Error while checking object ownership / setting CURRENT_SCHEMA");
         // }
 
-        OracleDataReader reader = command.ExecuteReader();
+        OracleDataReader reader = await command.ExecuteReaderAsync(executionCancellationToken);
         return reader;
     }
     private async Task ProcessStoredProcedureExecutions(ExecutionRequest message, CancellationToken stoppingToken)
@@ -311,8 +395,8 @@ public class ExecutionService : BackgroundService
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var execution = await context.Executions.FirstOrDefaultAsync(e => e.Id == message.ExecutionId, linkedTokenSource.Token) ?? throw new Exception("Execution not found");
-                execution.ExecutionStatus = ExecutionStatus.Running;
+                var execution = await context.Executions.AsNoTracking().FirstOrDefaultAsync(e => e.Id == message.ExecutionId, linkedTokenSource.Token) ?? throw new Exception("Execution not found");
+
                 executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter
                 {
                     Direction = p.Direction,
@@ -323,10 +407,11 @@ public class ExecutionService : BackgroundService
                 }).ToArray();
 
 
-                await context.SaveChangesAsync(linkedTokenSource.Token);
+                //await context.SaveChangesAsync(linkedTokenSource.Token);
+                await _eventPublisherl.PublishAsync(new ExecutionStartedEvent() { ExecutionId = execution.Id, UserId = message.UserId });
                 executionId = execution.Id;
             }
-      //q   7      await Task.Delay(TimeSpan.FromSeconds(100), linkedTokenSource.Token); // Simulate some initial delay
+            //q   7      await Task.Delay(TimeSpan.FromSeconds(100), linkedTokenSource.Token); // Simulate some initial delay
 
             OracleConnection connection = new OracleConnection(message.ConnectionString);
             OracleCommand command = new OracleCommand(message.SQLStatement, connection);
@@ -365,7 +450,7 @@ public class ExecutionService : BackgroundService
             }
             await connection.CloseAsync();
             // mark job as pending
-          
+
 
         }
         catch (Exception ex)
@@ -373,6 +458,8 @@ public class ExecutionService : BackgroundService
             _logger.LogError(ex, "Error processing stored procedure execution.");
             using (var scope = _serviceScopeFactory.CreateScope())
             {
+                _logger.LogInformation($"Cancelled execution of report {message.Id} for user {message.UserId} with Execution ID {executionId}");
+                await _eventPublisherl.PublishAsync(new ExecutionFailedEvent { ExecutionId = executionId, ErrorMessage = ex.Message, UserId = message.UserId });
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var execution = context.Executions.FirstOrDefault(e => e.Id == message.ExecutionId);
                 if (execution != null)
@@ -388,7 +475,7 @@ public class ExecutionService : BackgroundService
                 failedJob?.JobStatus = ExecutionStatus.Pending;
 
                 _ = await context.SaveChangesAsync(linkedTokenSource.Token);
-                _currentActiveExecutionsService.RemoveExecution(executionId);
+                _currentActiveExecutionsService.CancelExecution(executionId);
                 return;
             }
         }
@@ -408,11 +495,11 @@ public class ExecutionService : BackgroundService
                 execution.ErrorMessage = $"No Data retruned at {DateTime.Now.ToLongTimeString()}";
             }
 
-                // mark job as pending
-                var job = await context.ScheduledJobs.FirstOrDefaultAsync(s => s.Id == message.Id, linkedTokenSource.Token);
-                job?.JobStatus = ExecutionStatus.Pending;
-                // 
-                _ = await context.SaveChangesAsync(linkedTokenSource.Token);
+            // mark job as pending
+            var job = await context.ScheduledJobs.FirstOrDefaultAsync(s => s.Id == message.Id, linkedTokenSource.Token);
+            job?.JobStatus = ExecutionStatus.Pending;
+            // 
+            _ = await context.SaveChangesAsync(linkedTokenSource.Token);
         }
         try
         {
@@ -421,19 +508,18 @@ public class ExecutionService : BackgroundService
             if (message.To != null)
             {
 
-                await _emailSender.SendEmailAsync(message.To, message.Subject ?? string.Empty, string.IsNullOrWhiteSpace(fileslist)? $"No Data retruned at {DateTime.Now.ToLongTimeString()}": message.Body ?? string.Empty, fileslist, message.CC ?? string.Empty);
+                await _emailSender.SendEmailAsync(message.To, message.Subject ?? string.Empty, string.IsNullOrWhiteSpace(fileslist) ? $"No Data retruned at {DateTime.Now.ToLongTimeString()}" : message.Body ?? string.Empty, fileslist, message.CC ?? string.Empty);
             }
         }
         catch (System.Exception e)
         {
             _logger.LogError(e, "Error sending email");
 
-           
+
         }
 
 
 
-        _currentActiveExecutionsService.RemoveExecution(executionId);
 
     }
 }

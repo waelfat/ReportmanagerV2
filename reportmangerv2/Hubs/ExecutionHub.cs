@@ -13,5 +13,16 @@ namespace reportmangerv2.Hubs
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
         }
+        // override onconnectasync to add admins to admins group
+        public override async Task OnConnectedAsync()
+        {
+            var user = Context.User;
+            if (user != null && user.IsInRole("Admin"))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, "Admins");
+            }
+            await base.OnConnectedAsync();
+        }
+       
     }
 }

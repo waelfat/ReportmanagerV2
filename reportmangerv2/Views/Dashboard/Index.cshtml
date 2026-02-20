@@ -1,0 +1,38 @@
+@model IEnumerable<reportmangerv2.Domain.Execution>
+@{
+    ViewBag.Title = "Active Executions Dashboard";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<h2>Active Executions</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Execution ID</th>
+            <th>User</th>
+            <th>Report/Job</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Duration</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="executions-table-body">
+        @foreach (var exec in Model)
+        {
+            <tr id="exec-@exec.Id">
+                <td>@exec.Id</td>
+                <td>@(exec.User?.FullName ?? exec.UserId)</td>
+                <td>@(exec.Report?.Name ?? exec.ScheduledJob?.Description)</td>
+                <td class="status">@exec.ExecutionStatus</td>
+                <td>@exec.ExecutionDate.ToString("g")</td>
+                <td>@exec.Duration</td>
+                <td>
+                    <button class="btn btn-danger btn-cancel" data-id="@exec.Id">Cancel</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+@section Scripts {
+    <script src="~/js/dashboard.js"></script>
+}

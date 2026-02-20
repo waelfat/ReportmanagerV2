@@ -118,6 +118,9 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
        entity.Property(s=>s.JobType).HasConversion<string>();
        entity.Property(s=>s.JobStatus).HasConversion<string>();
        entity.Property(s=>s.JobType).HasDefaultValue(JobType.StoredProcedure);
+       entity.Property(s=>s.ScheduledType).HasConversion<string>();
+       //entity.Property(s=>s.ScheduledType).HasDefaultValue(ScheduledType.ScheduledJob);
+
        });
        //build hierarchy for Category
        modelBuilder.Entity<Category>(entity =>
