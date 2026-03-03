@@ -4,54 +4,71 @@
     string? successMessage = ViewBag.SuccessMessage as string;  
 
 }
-<div class="container-fluid">
-    <table class="table">
-    <thead class="thead-light sticky-top">
-        <tr>
-            <th class="bg-dark text-white">Discription</th>
-            <th class="bg-dark text-white">IsActive</th>
-            <th class="bg-dark text-white">Schema</th>
-            <th class="bg-dark text-white">ProcedureName</th>
-            <th class="bg-dark text-white">CronExpression</th>
-            <th class="bg-dark text-white">NextRunAt</th>
-            <th class="bg-dark text-white">CreatedAt</th>
-            <th class="bg-dark text-white">CreatedBy</th>
-            <th class="bg-dark text-white text-center">Actions</th>
-           
-            
-        </tr>
-    </thead>
-    <tbody>
-        @foreach(var job in Model){
-            <tr>
-          
-            <td>@job.Description</td>
-            <td>@job.IsActive</td>
-            <td>@job.Schema</td>
-            <td>@job.ProcedureName</td>
-            
-            <td data-cron="@job.CronExpression">@job.CronExpression</td>
-
-            <td>@job.NextRunAt</td>
-            <td>@job.CreatedAt</td>
-            <td>@job.CreatedBy</td>
-            <td class="text-center">
-                <div class="btn-group" role="group">
-                    <a asp-controller="ScheduledJob" asp-action="Details" asp-route-id="@job.Id" class="btn btn-sm btn-info" title="View Details">
-                        <i class="fas fa-eye"></i>
-                    </a>
-                    <a asp-controller="ScheduledJob" asp-action="Edit" asp-route-id="@job.Id" class="btn btn-sm btn-primary" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <a asp-controller="ScheduledJob" asp-action="Delete" asp-route-id="@job.Id" class="btn btn-sm btn-danger" title="Delete">
-                       <i class="fa-solid fa-trash"></i>
-                    </a>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-calendar me-2"></i>Scheduled Jobs</h2>
+        <a href="@Url.Action("Create")" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Create Scheduled Job
+        </a>
+    </div>
+    @if (Model != null && Model.Any())
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-nowrap"><i class="fas fa-align-left me-2"></i>Description</th>
+                                <th class="text-nowrap"><i class="fas fa-toggle-on me-2"></i>IsActive</th>
+                                <th class="text-nowrap"><i class="fas fa-database me-2"></i>Schema</th>
+                                <th class="text-nowrap"><i class="fas fa-cogs me-2"></i>ProcedureName</th>
+                                <th class="text-nowrap"><i class="fas fa-clock me-2"></i>CronExpression</th>
+                                <th class="text-nowrap"><i class="fas fa-calendar-alt me-2"></i>NextRunAt</th>
+                                <th class="text-nowrap"><i class="fas fa-calendar-plus me-2"></i>CreatedAt</th>
+                                <th class="text-nowrap"><i class="fas fa-user me-2"></i>CreatedBy</th>
+                                <th class="text-nowrap" class="text-center"><i class="fas fa-cog me-2"></i>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach(var job in Model)
+                            {
+                                <tr>
+                                    <td class="fw-semibold">@job.Description</td>
+                                    <td>@job.IsActive</td>
+                                    <td>@job.Schema</td>
+                                    <td>@job.ProcedureName</td>
+                                    <td data-cron="@job.CronExpression">@job.CronExpression</td>
+                                    <td>@job.NextRunAt</td>
+                                    <td>@job.CreatedAt</td>
+                                    <td>@job.CreatedBy</td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <a asp-controller="ScheduledJob" asp-action="Details" asp-route-id="@job.Id" class="btn btn-outline-info" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a asp-controller="ScheduledJob" asp-action="Edit" asp-route-id="@job.Id" class="btn btn-outline-primary" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            <a asp-controller="ScheduledJob" asp-action="Delete" asp-route-id="@job.Id" class="btn btn-outline-danger" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-            </td>
-            </tr>
-        }
-    </tbody>
-    </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>No scheduled jobs found. Create your first scheduled job to get started.
+        </div>
+    }
 </div>
 @section Scripts{
     <link rel="stylesheet" href="~/lib/fontawesome/css/all.min.css">
@@ -70,4 +87,4 @@
             });
         });
     </script>
-    }
+}

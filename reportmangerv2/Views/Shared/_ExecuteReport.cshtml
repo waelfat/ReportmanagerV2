@@ -182,7 +182,7 @@
     <div class="card-body p-0">
         <div class="execute-params" id="executeParams-@Model.Id">
             <form id="executeReportForm-@Model.Id" method="post" action="@Url.Action("Execute","Home")"
-                class="needs-validation" novalidate>
+                class="needs-validation" novalidate data-schema-id="@ViewBag.SchemaId">
                 <input type="hidden" name="Id" value="@Model.Id" />
 
                 @if (Model.Parameters.Any())
@@ -222,10 +222,27 @@
                                             </div>
                                             break;
                                         case ViewControl.Select:
-                                            <select class="form-select" name="Parameters[@i].Value" data-IsRequired="@(p.IsRequired.ToString().ToLower())"
-                                                asp-items="@p.Value.Split(';').Select(c => new SelectListItem { Value = c.Split(',')[0], Text = c.Split(',').Length > 1 ? c.Split(',')[1] : c.Split(',')[0] })">
-                                                <option value="">Select an option...</option>
-                                            </select>
+                                            @if (!string.IsNullOrEmpty(p.DependsOn))
+                                            {
+                                                <select class="form-select cascading-select" name="Parameters[@i].Value" data-IsRequired="@(p.IsRequired.ToString().ToLower())"
+                                                    data-depends-on="@p.DependsOn" data-param-name="@p.Name" data-all-options='@Html.Raw(p.Value)'>
+                                                    <option value="">Select an option...</option>
+                                                </select>
+                                            }
+                                            else if (!string.IsNullOrEmpty(p.Value) && p.Value.StartsWith("["))
+                                            {
+                                                <select class="form-select cascading-select" name="Parameters[@i].Value" data-IsRequired="@(p.IsRequired.ToString().ToLower())"
+                                                    data-param-name="@p.Name" data-all-options='@Html.Raw(p.Value)'>
+                                                    <option value="">Select an option...</option>
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <select class="form-select" name="Parameters[@i].Value" data-IsRequired="@(p.IsRequired.ToString().ToLower())"
+                                                    asp-items="@p.Value.Split(';').Select(c => new SelectListItem { Value = c.Split(',')[0], Text = c.Split(',').Length > 1 ? c.Split(',')[1] : c.Split(',')[0] })">
+                                                    <option value="">Select an option...</option>
+                                                </select>
+                                            }
                                             break;
                                         default:
                                             <input class="form-control" name="Parameters[@i].Value" value="@p.Value" data-IsRequired="@(p.IsRequired.ToString().ToLower())"  />
@@ -277,7 +294,7 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Select Date & Time</label>
-                    <input type="datetime-local" class="form-control" id="scheduleDateTime-@Model.Id">
+                    <input type="datetime-local" class="form-control" id="scheduleDateTime-@Model.Id" value ="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Cron Expression</label>

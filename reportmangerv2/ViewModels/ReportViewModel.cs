@@ -41,6 +41,8 @@ public class EditReportParameterViewModel
     public string? DefaultValue { get; set; }
     public int Position { get; set; }
     public bool IsRequired { get; set; }
+    public string? DependsOn { get; set; }
+    public string? DependencyQuery { get; set; }
 }
 
 public class DeleteReportViewModel

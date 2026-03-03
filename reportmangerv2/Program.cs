@@ -57,7 +57,7 @@ builder.Services.AddScoped<IEventHandler<ReportProgressEvent>,ReportProgressEven
 
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();
 builder.Services.AddScoped<IExecutionNotificationService, ExecutionNotificationService>();
- builder.Services.AddHostedService<ScheduledJobsExecuterService>();
+//  builder.Services.AddHostedService<ScheduledJobsExecuterService>();
 var app = builder.Build();
 // builder.Services.AddSingleton<Channel<ExecutionRequest>>(sp =>
 // {

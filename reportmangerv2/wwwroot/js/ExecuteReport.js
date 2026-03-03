@@ -13,7 +13,7 @@ $(function () {
         $('#ReportContainer').html('<div class="text-center py-4"><div class="spinner-border" role="status" aria-hidden="true"></div></div>');
 
         $.ajax({
-            url: 'home/ExecuteReport',
+            url: '/Home/ExecuteReport',
             type: 'GET',
             data: { id: id },
             success: function (result) {
@@ -29,12 +29,65 @@ $(function () {
                             console.error('Failed to load executerepotpartial.js');
                         });
                 }
+                initializeCascadingSelects();
             },
             error: function () {
                 $('#ReportContainer').html('<div class="alert alert-danger">Failed to load report.</div>');
             }
         });
     });
+    
+    // Initialize cascading selects
+    function initializeCascadingSelects() {
+        console.log('Initializing cascading selects');
+        $('.cascading-select').each(function() {
+            const $select = $(this);
+            const allOptionsJson = $select.data('all-options');
+            const dependsOn = $select.data('depends-on');
+            
+            console.log('Select:', $select.data('param-name'), 'DependsOn:', dependsOn, 'HasData:', !!allOptionsJson);
+            
+            if (!allOptionsJson) return;
+            
+            try {
+                debugger;
+                const allOptions = allOptionsJson;
+                console.log('Parsed options for', $select.data('param-name'), ':', allOptions);
+                
+                if (!dependsOn) {
+                    // Root select - populate with all data
+                    populateSelect($select, allOptions);
+                } else {
+                    // Dependent select - start empty
+                    const $parentSelect = $(`.cascading-select[data-param-name="${dependsOn}"]`);
+                    populateSelect($select, allOptions);
+                    
+                    $parentSelect.on('change', function() {
+                        const parentValue = $(this).val();
+                        
+                        if (parentValue) {
+                            const filteredOptions = allOptions.filter(opt => 
+                                opt.parentValue == parentValue
+                            );
+                            populateSelect($select, filteredOptions);
+                        } else {
+                            // $select.html('<option value="">Select an option...</option>');
+                            populateSelect($select,allOptions)
+                        }
+                    });
+                }
+            } catch(e) {
+                console.error('Error parsing options:', e);
+            }
+        });
+    }
+    
+    function populateSelect($select, data) {
+        $select.html('<option value="">Select an option...</option>');
+        data.forEach(function(item) {
+            $select.append(`<option value="${item.value}">${item.text}</option>`);
+        });
+    }
     
     // Schedule datetime change handler
     $(document).on('change', '[id^="scheduleDateTime-"]', function() {

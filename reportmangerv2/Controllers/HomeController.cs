@@ -53,8 +53,9 @@ public class HomeController : Controller
             r.Id,
             r.Name,
             r.Description,
+            r.SchemaId,
             Executions = r.Executions.Where(e => e.UserId == User.FindFirstValue(ClaimTypes.NameIdentifier)).OrderByDescending(e => e.ExecutionDate).Take(10),
-            ReportParameters = r.ReportParameters.Select(rp => new { rp.Name, rp.DefaultValue, rp.ViewControl,rp.IsRequired })
+            ReportParameters = r.ReportParameters.Select(rp => new { rp.Name, rp.DefaultValue, rp.ViewControl, rp.IsRequired, rp.DependsOn, rp.DependencyQuery })
         }).FirstOrDefaultAsync();
 
         if (reportwithExecutions == null)
@@ -67,9 +68,56 @@ public class HomeController : Controller
             Id = reportwithExecutions.Id,
             Name = reportwithExecutions.Name,
             Description = reportwithExecutions.Description,
-            Parameters = reportwithExecutions.ReportParameters.Select(p => new ParameterViewModel { Name = p.Name, Value = p.DefaultValue ?? "", ViewControl = p.ViewControl,IsRequired=p.IsRequired }).ToList()
+            Parameters = reportwithExecutions.ReportParameters.Select(p => new ParameterViewModel { Name = p.Name, Value = p.DefaultValue ?? "", ViewControl = p.ViewControl, IsRequired = p.IsRequired, DependsOn = p.DependsOn, DependencyQuery = p.DependencyQuery }).ToList()
 
         };
+
+        // Load all select data for cascading parameters
+        var schema = await _context.Schemas.FindAsync(reportwithExecutions.SchemaId);
+        if (schema != null)
+        {
+            foreach (var param in rpt.Parameters.Where(p => p.ViewControl == ViewControl.Select
+            && !string.IsNullOrEmpty(p.DependencyQuery)
+            ))
+            {
+                try
+                {
+                    var data = new List<SelectOption>();
+                    using (var connection = new OracleConnection(schema.ConnectionString))
+                    {
+                        await connection.OpenAsync();
+                        using (var command = new OracleCommand(param.DependencyQuery, connection))
+                        {
+                            using (var reader = await command.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    data.Add(new SelectOption
+                                    {
+                                        // Use ternary operator to check for nulls at each index
+                                        Value = reader.IsDBNull(0) ? "" : reader.GetString(0),
+
+                                        Text = reader.FieldCount > 1
+                                         ? (reader.IsDBNull(1) ? "" : reader.GetString(1))
+                                         : (reader.IsDBNull(0) ? "" : reader.GetString(0)),
+
+                                        ParentValue = reader.FieldCount > 2
+                                        ? (reader.IsDBNull(2) ? "" : reader.GetString(2))
+                                        : ""
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    param.Value = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                    _logger.LogInformation($"Loaded {data.Count} options for parameter {param.Name}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error loading data for parameter {param.Name}");
+                }
+            }
+        }
 
 
         // var users=_context.Users.ToList();
@@ -84,10 +132,11 @@ public class HomeController : Controller
         //get fullname from claims
         ViewBag.FullName = User.FindFirstValue("FullName");
         ViewBag.UserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        
+        ViewBag.SchemaId = reportwithExecutions.SchemaId;
+
         // Get active executions for this user
         var userActiveExecutions = reportwithExecutions.Executions
-            .Where(e => (e.ExecutionStatus == ExecutionStatus.Running || e.ExecutionStatus == ExecutionStatus.Pending) && 
+            .Where(e => (e.ExecutionStatus == ExecutionStatus.Running || e.ExecutionStatus == ExecutionStatus.Pending) &&
                        _currentActiveExecutionsService.IsExecutionActive(e.Id))
             .Select(e => e.Id)
             .ToList();
@@ -114,22 +163,23 @@ public class HomeController : Controller
                 if (executionEntity != null)
                 {
                     //if execution has fileresult set it completed otherwise make it failed
-                    if (!string.IsNullOrEmpty(executionEntity.ResultFilePath) && System.IO.File.Exists(executionEntity.ResultFilePath) )
+                    if (!string.IsNullOrEmpty(executionEntity.ResultFilePath) && System.IO.File.Exists(executionEntity.ResultFilePath))
                     {
                         //if the result file exists then mark as completed otherwise failed
-                        
-                        
+
+
                         executionEntity.ExecutionStatus = ExecutionStatus.Completed;
                         //edit in the main list reportExecutions
                         reportExecutions.First(e => e.Id == execution.Id).Status = "Completed";
 
-                        
-                     
-                    }else
+
+
+                    }
+                    else
                     {
                         executionEntity.ExecutionStatus = ExecutionStatus.Failed;
-                        reportExecutions.First(e=>e.Id==execution.Id).Status="Failed";
-                        
+                        reportExecutions.First(e => e.Id == execution.Id).Status = "Failed";
+
                     }
                     await _context.SaveChangesAsync();
                 }
@@ -150,7 +200,7 @@ public class HomeController : Controller
         }
 
         // var report = await _context.Reports.Include(r=>r.Schema).Include(r=>r.ReportParameters).FirstOrDefaultAsync(r=>r.Id==model.Id);
-        var report = await _context.Reports.Where(r => r.Id == model.Id).Select(r => new { r.Id, r.Name, r.Schema.ConnectionString, r.ReportQuery, parameters = r.ReportParameters.Select(p => new { p.Name, p.DefaultValue }) }).FirstOrDefaultAsync();
+        var report = await _context.Reports.Where(r => r.Id == model.Id).Select(r => new { r.Id, r.Name, r.Schema.ConnectionString, r.ReportQuery, parameters = r.ReportParameters.Select(p => new { p.Name, p.DefaultValue, p.Type }) }).FirstOrDefaultAsync();
         if (report == null)
         {
             return NotFound(new { error = "Report not found" });
@@ -169,7 +219,7 @@ public class HomeController : Controller
         {
             return BadRequest(new { error = $"Missing required parameters: {string.Join(", ", missingParameters)}" });
         }
-       
+
         //check if the report is already executing
 
         var exec = new Execution
@@ -183,6 +233,25 @@ public class HomeController : Controller
 
             ExecutionParameters = model.Parameters.Select(p => new ExecutionParameter { Name = p.Name, Value = p.Value }).ToList()
         };
+        // assgin executionparamters type and directions for report
+        for (int i = 0; i < exec.ExecutionParameters.Count; i++)
+        {
+            var param = exec.ExecutionParameters[i];
+            var reportParam = report.parameters.FirstOrDefault(p => p.Name == param.Name);
+            if (reportParam != null)
+            {
+                param.Type = reportParam.Type;
+                param.Direction = ParameterDirection.Input;
+            }
+        }
+        //if value is date convert it to 'dd/mm/yyyy'
+        foreach (var param in exec.ExecutionParameters)
+        {
+            if (param.Type == OracleDbType.Date && DateTime.TryParse(param.Value, out DateTime dateValue))
+            {
+                param.Value = dateValue.ToString("dd/MM/yyyy");
+            }
+        }
 
         _context.Executions.Add(exec);
         await _context.SaveChangesAsync();
@@ -234,7 +303,7 @@ public class HomeController : Controller
         var report = await _context.Reports.Where(r => r.Id == model.ReportId)
             .Select(r => new { r.Id, r.Name, r.SchemaId, r.ReportQuery })
             .FirstOrDefaultAsync();
-            
+
         if (report == null)
         {
             return NotFound(new { error = "Report not found" });
@@ -243,17 +312,17 @@ public class HomeController : Controller
         var job = new ScheduledJob
         {
             ProcedureName = report.Name,
-            
+
             JobType = JobType.SqlStatement,
             CronExpression = model.CronExpression,
             IsActive = true,
             CreatedById = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "Anonymous",
             Description = $"Scheduled job for report {report.Name}",
             JobStatus = ExecutionStatus.Pending,
-           // NextRunAt = CrontabSchedule.Parse(model.CronExpression).GetNextOccurrence(DateTime.Now.AddMinutes(2)),
-           //assing nextrunat to selecteddate
+            // NextRunAt = CrontabSchedule.Parse(model.CronExpression).GetNextOccurrence(DateTime.Now.AddMinutes(2)),
+            //assing nextrunat to selecteddate
             NextRunAt = model.SelectedDate,// > DateTime.Now ? model.SelectedDate : CrontabSchedule.Parse(model.CronExpression).GetNextOccurrence(DateTime.Now.AddMinutes(2)),
-        
+
             SchemaId = report.SchemaId,
             SqlStatement = report.ReportQuery,
             Parameters = model.Parameters?.Select(p => new ScheduledJobParameter
@@ -264,13 +333,13 @@ public class HomeController : Controller
                 Type = OracleDbType.Varchar2
             }).ToList() ?? new List<ScheduledJobParameter>()
         };
-         var exec = new Execution
+        var exec = new Execution
         {
             ReportId = report.Id,
             ExecutionStatus = ExecutionStatus.Scheduled,
             ExecutionType = ExecutionType.ScheduledQuery,
             ScheduledJobId = job.Id,
-            ExecutionDate=model.SelectedDate ?? DateTime.Now,
+            ExecutionDate = model.SelectedDate ?? DateTime.Now,
             // get id of the user
             UserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Anonymous",
 
@@ -280,33 +349,33 @@ public class HomeController : Controller
         _context.Executions.Add(exec);
 
         _context.Add(job);
-        
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation($"Report {model.ReportId} scheduled with cron expression {model.CronExpression}");
-        return Json(new { executionId= exec.Id });
+        return Json(new { executionId = exec.Id });
     }
     [HttpPost]
     public async Task<IActionResult> CancelExecution(string executionId)
     {
- 
+
         if (string.IsNullOrEmpty(executionId))
         {
             return BadRequest(new { error = "Execution ID is required" });
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync (e => e.Id == executionId );
-        
+        var execution = await _context.Executions.Include(e => e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId);
+
         if (execution == null)
         {
             return NotFound(new { error = "Execution not found" });
         }
         //check if the execution is scheduled 
-       if(execution.ExecutionType==ExecutionType.ScheduledQuery)
-       {
-         return await CancelScheduled(execution);
-       }
+        if (execution.ExecutionType == ExecutionType.ScheduledQuery)
+        {
+            return await CancelScheduled(execution);
+        }
         if (execution.ExecutionStatus != ExecutionStatus.Running && execution.ExecutionStatus != ExecutionStatus.Pending)
         {
             return BadRequest(new { error = "Execution cannot be cancelled" });
@@ -314,24 +383,24 @@ public class HomeController : Controller
 
         // Cancel the execution in the service
         _currentActiveExecutionsService.CancelExecution(executionId);
-        
+
         _logger.LogInformation($"Execution {executionId} cancelled by user {userId}");
         return Json(new { success = true });
     }
-     [HttpPost]
-     private async Task<IActionResult> CancelScheduled(Execution execution)
+    [HttpPost]
+    private async Task<IActionResult> CancelScheduled(Execution execution)
     {
         //get job from executionid
-       
-       
+
+
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-      //  var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId) ;
-        
+        //  var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId) ;
+
         if (execution == null)
         {
             return NotFound(new { error = "Execution not found" });
         }
-      
+
         if (execution.ScheduledJob == null)
         {
             return NotFound(new { error = "Scheduled job not found" });
@@ -342,12 +411,12 @@ public class HomeController : Controller
         {
             return Forbid();
         }
-        if (execution.ExecutionStatus==ExecutionStatus.Completed || execution.ExecutionStatus == ExecutionStatus.Failed)
+        if (execution.ExecutionStatus == ExecutionStatus.Completed || execution.ExecutionStatus == ExecutionStatus.Failed)
         {
-            return BadRequest(new { error = "Scheduled execution finished "});
+            return BadRequest(new { error = "Scheduled execution finished " });
         }
         execution.ScheduledJob.IsActive = false;
-        execution.ScheduledJob.JobStatus=ExecutionStatus.Cancelled;
+        execution.ScheduledJob.JobStatus = ExecutionStatus.Cancelled;
         execution.ExecutionStatus = ExecutionStatus.Cancelled;
 
         await _context.SaveChangesAsync();
@@ -356,7 +425,7 @@ public class HomeController : Controller
         {
             _currentActiveExecutionsService.CancelExecution(execution.Id);
         }
-        
+
         return Json(new { success = true });
     }
     [HttpPost]
@@ -368,7 +437,7 @@ public class HomeController : Controller
         }
 
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var execution = await _context.Executions.Include(e=>e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId && e.UserId == userId);
+        var execution = await _context.Executions.Include(e => e.ScheduledJob).FirstOrDefaultAsync(e => e.Id == executionId && e.UserId == userId);
 
         if (execution == null)
         {
@@ -396,23 +465,88 @@ public class HomeController : Controller
         await _context.SaveChangesAsync();
 
         // Delete the result file if it exists
-          if (!string.IsNullOrEmpty(execution.ResultFilePath) && System.IO.File.Exists(execution.ResultFilePath))
+        if (!string.IsNullOrEmpty(execution.ResultFilePath) && System.IO.File.Exists(execution.ResultFilePath))
         {
-        try
-        {
-            
-              
-            System.IO.File.Delete(execution.ResultFilePath);
-        }catch(Exception ex)
-        {
-            _logger.LogError(ex, $"Error deleting file {execution.ResultFilePath}");
+            try
+            {
+
+
+                System.IO.File.Delete(execution.ResultFilePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting file {execution.ResultFilePath}");
+            }
         }
-        }
-    
+
 
         _logger.LogInformation($"Execution {executionId} deleted by user {userId}");
         return Json(new { success = true });
     }
 
+    [HttpPost]
+    public async Task<IActionResult> GetCascadingData([FromBody] CascadingDataRequest request)
+    {
+        if (string.IsNullOrEmpty(request?.SchemaId) || string.IsNullOrEmpty(request?.Query))
+        {
+            return BadRequest(new { error = "Schema ID and query are required" });
+        }
 
+        var schema = await _context.Schemas.FindAsync(request.SchemaId);
+        if (schema == null)
+        {
+            return NotFound(new { error = "Schema not found" });
+        }
+
+        try
+        {
+            var query = request.Query;
+            if (!string.IsNullOrEmpty(request.ParentValue))
+            {
+                query = query.Replace(":parentValue", $"'{request.ParentValue}'");
+            }
+
+            var data = new List<SelectOption>();
+            using (var connection = new Oracle.ManagedDataAccess.Client.OracleConnection(schema.ConnectionString))
+            {
+                await connection.OpenAsync();
+                using (var command = new Oracle.ManagedDataAccess.Client.OracleCommand(query, connection))
+                {
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            data.Add(new SelectOption
+                            {
+                                Value = reader.GetString(0),
+                                Text = reader.FieldCount > 1 ? reader.GetString(1) : reader.GetString(0),
+                                ParentValue = reader.FieldCount > 2 ? reader.GetString(2) : null
+                            });
+                        }
+                    }
+                }
+            }
+
+            return Json(data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching cascading data");
+            return StatusCode(500, new { error = "Error fetching data" });
+        }
+    }
+}
+
+public class CascadingDataRequest
+{
+    public string SchemaId { get; set; }
+    public string Query { get; set; }
+    public string ParentValue { get; set; }
+}
+
+public class SelectOption
+{
+    public string Value { get; set; }
+    public string Text { get; set; }
+    public string ParentValue { get; set; }
 }

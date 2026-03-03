@@ -24,5 +24,6 @@ public class CreateReportParameterViewModel
     [Range(1,int.MaxValue)]
     public int Position { get; set; }
     public string ViewControl { get; set; } = "TextBox";
-    
+    public string? DependsOn { get; set; }
+    public string? DependencyQuery { get; set; }
 }

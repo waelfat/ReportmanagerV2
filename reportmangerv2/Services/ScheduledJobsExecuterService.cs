@@ -218,7 +218,7 @@ public class ScheduledJobsExecuterService : BackgroundService
                 ReportTitle = job.ProcedureName,
                 ExecutionId = execution.Id,
                 SQLStatement = job.SqlStatement ?? throw new Exception("no sql statement found for job " + job.Id),
-                Type = ExecutionRequesType.SqlStatement,
+            Type = ExecutionRequesType.SqlStatement,
                 ConnectionString = job.Schema.ConnectionString,
                 Body = job.MessageBody,
                 To = job.SendToEmails,

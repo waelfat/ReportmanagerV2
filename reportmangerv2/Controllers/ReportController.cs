@@ -121,7 +121,9 @@ ORDER SIBLINGS BY c.name";
                     ViewControl = Enum.Parse<ViewControl>(p.ViewControl, true),
                     DefaultValue = p.DefaultValue,
                     Position = p.Position,
-                    IsRequired = p.IsRequired
+                    IsRequired = p.IsRequired,
+                    DependsOn = p.DependsOn,
+                    DependencyQuery = p.DependencyQuery
                 }).ToList()
             };
 
@@ -154,6 +156,8 @@ ORDER SIBLINGS BY c.name";
             return NotFound();
         }
         
+        var schema = await _context.Schemas.FindAsync(report.SchemaId);
+        
         var viewModel = new EditReportViewModel
         {
             Id = report.Id,
@@ -172,9 +176,47 @@ ORDER SIBLINGS BY c.name";
                 ViewControl = p.ViewControl.ToString(),
                 DefaultValue = p.DefaultValue,
                 Position = p.Position,
-                IsRequired = p.IsRequired
+                IsRequired = p.IsRequired,
+                DependsOn = p.DependsOn,
+                DependencyQuery = p.DependencyQuery
             }).ToList()
         };
+        
+        // Load cascading data for Select parameters
+        if (schema != null)
+        {
+            foreach (var param in viewModel.Parameters.Where(p => p.ViewControl == "Select" && !string.IsNullOrEmpty(p.DependencyQuery)))
+            {
+                try
+                {
+                    var data = new List<SelectOption>();
+                    using (var connection = new OracleConnection(schema.ConnectionString))
+                    {
+                        await connection.OpenAsync();
+                        using (var command = new OracleCommand(param.DependencyQuery, connection))
+                        {
+                            using (var reader = await command.ExecuteReaderAsync())
+                            {
+                                while (await reader.ReadAsync())
+                                {
+                                    data.Add(new SelectOption
+                                    {
+                                        Value = reader.GetString(0),
+                                        Text = reader.FieldCount > 1 ? reader.GetString(1) : reader.GetString(0),
+                                        ParentValue = reader.FieldCount > 2 ? reader.GetString(2) : null
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    param.DefaultValue = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error loading data for parameter {param.Name}");
+                }
+            }
+        }
         
         var schemas = await _context.Schemas.Select(s => new SelectListItem { Text = s.Name, Value = s.Id }).ToListAsync();
         ViewBag.AvailableSchemas = schemas;
@@ -236,7 +278,9 @@ ORDER SIBLINGS BY c.name";
                 ViewControl = Enum.Parse<ViewControl>(p.ViewControl, true),
                 DefaultValue = p.DefaultValue,
                 Position = p.Position,
-                IsRequired = p.IsRequired
+                IsRequired = p.IsRequired,
+                DependsOn = p.DependsOn,
+                DependencyQuery = p.DependencyQuery
             }).ToList();
             
             await _context.SaveChangesAsync();
@@ -299,7 +343,9 @@ ORDER SIBLINGS BY c.name";
 
     public async Task<IActionResult> GetReportById(string id)
     {
-        var report = await _context.Reports.FindAsync(id);
+        var report = await _context.Reports
+            .Include(r => r.ReportParameters)
+            .FirstOrDefaultAsync(r => r.Id == id);
 
         if (report == null)
         {
@@ -312,7 +358,6 @@ ORDER SIBLINGS BY c.name";
             Name = report.Name,
             Description = report.Description,
             Parameters = report.ReportParameters.Select(p => new ParameterViewModel { Name = p.Name, Value = p.DefaultValue ?? "" }).ToList()
-
         };
 
         // Load previous executions for this report

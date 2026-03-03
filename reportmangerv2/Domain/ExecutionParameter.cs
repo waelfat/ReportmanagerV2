@@ -8,5 +8,5 @@ public class ExecutionParameter
     public string? Name { get; set; }
     public string? Value { get; set; } 
     public ParameterDirection Direction    {get;set;}
-    public OracleDbType Type { get; set; }=OracleDbType.Varchar2;
+    public OracleDbType Type { get; set; }
 }

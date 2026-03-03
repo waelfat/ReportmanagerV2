@@ -12,6 +12,47 @@ function showSuccessToast(message) {
     toast.show();
 }
 
+function updateDependsOnOptions() {
+    const allParams = document.querySelectorAll('.param-name');
+    document.querySelectorAll('.param-depends-on').forEach(select => {
+        const currentParam = select.closest('.card').querySelector('.param-name').value;
+        select.innerHTML = '<option value="">None</option>';
+        allParams.forEach(p => {
+            if (p.value !== currentParam) {
+                select.innerHTML += `<option value="${p.value}">${p.value}</option>`;
+            }
+        });
+        const savedValue = select.closest('.card').dataset.dependsOn;
+        if (savedValue) select.value = savedValue;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.param-viewcontrol').forEach(select => {
+        const card = select.closest('.card');
+        const dependsOn = card.querySelector('.param-depends-on')?.value || '';
+        card.dataset.dependsOn = dependsOn;
+        
+        if (select.value === 'Select') {
+            card.querySelector('.param-datasource').style.display = 'block';
+            card.querySelector('.param-depends').style.display = 'block';
+        }
+        
+        select.addEventListener('change', function() {
+            if (this.value === 'Select') {
+                card.querySelector('.param-datasource').style.display = 'block';
+                card.querySelector('.param-depends').style.display = 'block';
+                updateDependsOnOptions();
+            } else {
+                card.querySelector('.param-datasource').style.display = 'none';
+                card.querySelector('.param-depends').style.display = 'none';
+            }
+        });
+    });
+    
+    updateDependsOnOptions();
+});
+
 function extractParametersFromQuery(query) {
     const paramRegex = /:(\w+)/g;
     const params = [];
@@ -78,6 +119,18 @@ function displayParameters(parameters) {
                                 <input type="text" class="form-control param-default" placeholder="Default value">
                             </div>
                             
+                            <div class="mb-2 param-datasource" style="display:none;">
+                                <label class="form-label fw-semibold">Data Source Query</label>
+                                <textarea class="form-control param-datasource-query" rows="2" placeholder="SELECT id, name, parent_id FROM table"></textarea>
+                            </div>
+                            
+                            <div class="mb-2 param-depends" style="display:none;">
+                                <label class="form-label fw-semibold">Depends On</label>
+                                <select class="form-control param-depends-on">
+                                    <option value="">None</option>
+                                </select>
+                            </div>
+                            
                             <div class="form-check">
                                 <input class="form-check-input param-required" type="checkbox" checked>
                                 <label class="form-check-label">Required</label>
@@ -128,6 +181,8 @@ document.getElementById('editReportForm').addEventListener('submit', async funct
         const defaultValue = card.querySelector('.param-default').value;
         const isRequired = card.querySelector('.param-required').checked;
         const position = parseInt(card.querySelector('.param-position').value);
+        const dependsOn = card.querySelector('.param-depends-on')?.value || null;
+        const dependencyQuery = card.querySelector('.param-datasource-query')?.value || null;
         
         parameters.push({
             Id: id,
@@ -137,7 +192,9 @@ document.getElementById('editReportForm').addEventListener('submit', async funct
             ViewControl: viewControl,
             DefaultValue: defaultValue || null,
             IsRequired: isRequired,
-            Position: position
+            Position: position,
+            DependsOn: dependsOn || null,
+            DependencyQuery: dependencyQuery || null
         });
     });
     

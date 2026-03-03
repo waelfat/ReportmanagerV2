@@ -9,6 +9,8 @@ public class ParameterViewModel
     public string? Description { get; set; }
     public string? DisplayName { get; set; } 
     public bool IsRequired { get; set; }=false;
-      public ViewControl ViewControl { get; set; }=ViewControl.TextBox;
+    public ViewControl ViewControl { get; set; }=ViewControl.TextBox;
+    public string? DependsOn { get; set; }
+    public string? DependencyQuery { get; set; }
 }
 

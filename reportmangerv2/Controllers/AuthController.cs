@@ -28,41 +28,7 @@ public class AuthController : Controller
         _userManager = userManager;
         _roleManager = roleManager;
     }
-    [HttpPost]
-    public async Task<IActionResult> Register(RegisterViewModel model)
-    {
-        if (ModelState.IsValid)
-        {
-            // Registration logic here
-            var user = new ApplicationUser
-            {
-                UserName = model.Email,
-                Email = model.Email,
-               FullName=model.Name
-            };
-            var result = await _userManager.CreateAsync(user, model.Password);
-            if (result.Succeeded)
-            {
-                _logger.LogInformation("User created a new account with password.");
-                // add fullname to claim
-                await _userManager.AddClaimAsync(user, new("FullName", model.Name));
-                // add user to userRole
-                await _userManager.AddToRoleAsync(user, "UserRole");
-                return RedirectToAction("Login", "Auth");
-                
 
-                
-                // await _signInManager.SignInAsync(user, isPersistent: false);
-                // return RedirectToAction("Index", "Home");
-            }
-            foreach (var error in result.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
-            
-        }
-        return View(model);
-    }
     [HttpGet]
     public IActionResult Login()
     {
@@ -93,11 +59,6 @@ public class AuthController : Controller
             
         }
         return View(model);
-    }
-    [HttpGet]
-    public IActionResult Register()
-    {
-        return View();
     }
     public async Task<IActionResult> Logout()
     {

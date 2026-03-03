@@ -142,6 +142,18 @@
                                                 <input type="text" class="form-control param-default" value="@param.DefaultValue" placeholder="Default value">
                                             </div>
                                             
+                                            <div class="mb-2 param-datasource" style="display:none;">
+                                                <label class="form-label fw-semibold">Data Source Query</label>
+                                                <textarea class="form-control param-datasource-query" rows="2" placeholder="SELECT id, name, parent_id FROM table">@param.DependencyQuery</textarea>
+                                            </div>
+                                            
+                                            <div class="mb-2 param-depends" style="display:none;">
+                                                <label class="form-label fw-semibold">Depends On</label>
+                                                <select class="form-control param-depends-on">
+                                                    <option value="">None</option>
+                                                </select>
+                                            </div>
+                                            
                                             <div class="form-check">
                                                 <input class="form-check-input param-required" type="checkbox" @(param.IsRequired ? "checked" : "")>
                                                 <label class="form-check-label">Required</label>

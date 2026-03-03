@@ -1,8 +1,11 @@
 using System;
 using System.Data;
 using System.Diagnostics.Metrics;
+using System.Drawing;
 using System.Threading.Channels;
-
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 
 using Oracle.ManagedDataAccess.Client;
@@ -58,10 +61,10 @@ public class ExecutionService : BackgroundService
                     switch (message.Type)
                     {
                         case ExecutionRequesType.SqlStatement:
-                            await ProcessExecutions(message, stoppingToken);
+                            _ =  ProcessExecutions(message, stoppingToken);
                             break;
                         case ExecutionRequesType.StoredProcedure:
-                            await ProcessStoredProcedureExecutions(message, stoppingToken);
+                            _ =  ProcessStoredProcedureExecutions(message, stoppingToken);
                             break;
                         default:
                             _logger.LogWarning($"Unknown execution type: {message.Type}");
@@ -114,7 +117,22 @@ public class ExecutionService : BackgroundService
                 execution.ExecutionStatus = ExecutionStatus.Running;
                 //execution.ExecutionDate = DateTime.UtcNow; // Set actual start time
                 //load exection in 
-                executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter(p.Name, (object?)p.Value ?? DBNull.Value)).ToArray();
+                executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter
+               // (p.Name, p.Direction,Value=(object?)p.Value ?? DBNull.Value,OracleDbType=p.Type}
+                  { ParameterName = p.Name, Direction = p.Direction, Value = (object?)p.Value ?? DBNull.Value, OracleDbType = p.Type })
+                
+                .ToArray();
+                // if param is date convert value to date
+                for (int i = 0; i < executionParameters.Length; i++)
+                {
+                    if (executionParameters[i].OracleDbType == OracleDbType.Date && executionParameters[i].Value != null && executionParameters[i].Value != DBNull.Value)
+                    {
+                        if (DateTime.TryParse(executionParameters[i].Value.ToString(), out DateTime dateValue))
+                        {
+                            executionParameters[i].Value = dateValue;
+                        }
+                    }
+                }
                 await _eventPublisherl.PublishAsync(new ExecutionStartedEvent
                 {
                     ExecutionId = message.ExecutionId,
@@ -137,6 +155,8 @@ public class ExecutionService : BackgroundService
             }
             //  await Task.Delay(TimeSpan.FromMinutes(2), linkedTokenSource.Token); // Simulate some initial delay
             OracleConnection connection = new(message.ConnectionString);
+            //start execting with params 
+            _logger.LogInformation($"Executing SQL statement for report {message.ReportTitle} with Execution ID {executionId}. params: {string.Join(",",executionParameters.Select(p=>p.ParameterName + ":" + p.Value))}");
             OracleDataReader reader = await ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
 
 
@@ -288,6 +308,166 @@ public class ExecutionService : BackgroundService
         //delay for 5 minutes to simulate long running report
 
     }
+    
+    private async Task<string> SaveOracleDataReaderToExcelxml(OracleDataReader reader, ExecutionRequest message, CancellationToken cancellationToken = default)
+    {
+        //using xml to save large files
+        var sheetsCount = 1;
+
+        var currentRow = 2;
+        var extractedRows = 0;
+        string fileName = $"{message.ReportTitle}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        string filePath = Path.Combine(_webHostEnvironment.ContentRootPath, "Reports", fileName);
+        Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+     using (SpreadsheetDocument document = SpreadsheetDocument.Create(filePath, SpreadsheetDocumentType.Workbook))
+{
+    WorkbookPart workbookPart = document.AddWorkbookPart();
+    workbookPart.Workbook = new Workbook();
+    // write in batches every 1000 rows
+   // var batch=new List<object[]>();
+
+    // Create Sheets collection once
+    Sheets sheets = workbookPart.Workbook.AppendChild(new Sheets());
+
+     sheetsCount = 1;
+    WorksheetPart worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+    OpenXmlWriter writer = OpenXmlWriter.Create(worksheetPart);
+
+    try
+    {
+        writer.WriteStartElement(new Worksheet());
+        writer.WriteStartElement(new SheetData());
+
+        // Header row
+        writer.WriteStartElement(new Row());
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            writer.WriteElement(new Cell { DataType = CellValues.String, CellValue = new CellValue(reader.GetName(i)) });
+        }
+        writer.WriteEndElement(); // Row
+
+        // Register first sheet
+        sheets.Append(new Sheet
+        {
+            Id = workbookPart.GetIdOfPart(worksheetPart),
+            SheetId = (uint)sheetsCount,
+            Name = "Report"
+        });
+
+        // Data rows
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            writer.WriteStartElement(new Row());
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+
+               // writer.WriteElement(new Cell { DataType = CellValues.String, CellValue = new CellValue(reader.GetValue(i).ToString()) });
+               writer.WriteElement(CreateCell(reader.GetValue(i)));
+            }
+            writer.WriteEndElement(); // Row
+
+            currentRow++;
+            extractedRows++;
+
+            if (currentRow % 10000 == 0)
+            {
+                await _eventPublisherl.PublishAsync(new ReportProgressEvent
+                {
+                    ExecutionId = message.ExecutionId,
+                    ProgressRowsNumber = extractedRows,
+                    UserId = message.UserId
+                });
+            }
+
+            if (currentRow > 1048000)
+            {
+                // Close current sheet
+                writer.WriteEndElement(); // SheetData
+                writer.WriteEndElement(); // Worksheet
+                writer.Dispose();
+
+                // New sheet
+                sheetsCount++;
+                worksheetPart = workbookPart.AddNewPart<WorksheetPart>();
+                writer = OpenXmlWriter.Create(worksheetPart);
+
+                writer.WriteStartElement(new Worksheet());
+                writer.WriteStartElement(new SheetData());
+
+                // Header row for new sheet
+                writer.WriteStartElement(new Row());
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    writer.WriteElement(new Cell { DataType = CellValues.String, CellValue = new CellValue(reader.GetName(i)) });
+                }
+                writer.WriteEndElement(); // Row
+
+                // Register new sheet
+                sheets.Append(new Sheet
+                {
+                    Id = workbookPart.GetIdOfPart(worksheetPart),
+                    SheetId = (uint)sheetsCount,
+                    Name = $"Report_{sheetsCount}"
+                });
+
+                currentRow = 2;
+            }
+        }
+
+        writer.WriteEndElement(); // SheetData
+        writer.WriteEndElement(); // Worksheet
+    }
+    finally
+    {
+        writer?.Dispose();
+    }
+}
+
+        return filePath;
+    }
+private CellValues DetermineCellValueType(object value)
+    {
+        if (value == null || value == DBNull.Value)
+        {
+            return CellValues.String;
+        }
+
+        return value switch
+        {
+            string => CellValues.String,
+            int => CellValues.Number,
+            long => CellValues.Number,
+            short => CellValues.Number,
+            byte => CellValues.Number,
+            sbyte => CellValues.Number,
+            ushort => CellValues.Number,
+            uint => CellValues.Number,
+            ulong => CellValues.Number,
+            float => CellValues.Number,
+            double => CellValues.Number,
+            decimal => CellValues.Number,
+            bool => CellValues.Boolean,
+            DateTime => CellValues.Date,
+            _ => CellValues.String
+        };
+      //  if (value is int || value is long || value is short || value is byte || value is sbyte || value is ushort || value is uint || value is ulong)
+    }
+    private Cell CreateCell(object value)
+    {
+        var cell = new Cell();
+        if (value == null || value == DBNull.Value)
+        {
+            cell.DataType = CellValues.String;
+            cell.CellValue = new CellValue("");
+        }
+        else
+        {
+            var cellType = DetermineCellValueType(value);
+            cell.DataType = cellType;
+            cell.CellValue = new CellValue(value.ToString() ?? "");
+        }
+        return cell;
+    }
     private async Task<string> SaveOracleDataReaderToExcel(OracleDataReader reader, ExecutionRequest message, CancellationToken cancellationToken = default)
     {
         var workbook = new ClosedXML.Excel.XLWorkbook();
@@ -306,8 +486,8 @@ public class ExecutionService : BackgroundService
         }
         var currentRow = 2;
 
-        if (!reader.HasRows)
-            return string.Empty;
+        // if (!reader.HasRows)
+        //     return string.Empty;
         while (await reader.ReadAsync(cancellationToken))
         {
             for (int i = 0; i < reader.FieldCount; i++)
@@ -396,6 +576,7 @@ public class ExecutionService : BackgroundService
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var execution = await context.Executions.AsNoTracking().FirstOrDefaultAsync(e => e.Id == message.ExecutionId, linkedTokenSource.Token) ?? throw new Exception("Execution not found");
+                      //create oracle parametrs with length of 4000 for varchar2 and nvarchar
 
                 executionParameters = execution.ExecutionParameters.Select(p => new OracleParameter
                 {
@@ -403,9 +584,17 @@ public class ExecutionService : BackgroundService
                     Value = (object?)p.Value ?? DBNull.Value,
                     ParameterName = p.Name,
                     OracleDbType = p.Type, // p.Type must be OracleDbType Direction = p.Direction, // ParameterDirection Value = p.Value ?? DBNull.Value
+                  // Size = (p.Type == OracleDbType.Varchar2 || p.Type == OracleDbType.NVarchar2) ? 4000 : default
 
                 }).ToArray();
-
+                // for each nvarchar2 or varchar2 assign size to 4000
+                for (int i = 0; i < executionParameters.Length; i++)
+                {
+                    if (executionParameters[i].OracleDbType == OracleDbType.Varchar2 || executionParameters[i].OracleDbType == OracleDbType.NVarchar2)
+                    {
+                        executionParameters[i].Size = 4000;
+                    }
+                }
 
                 //await context.SaveChangesAsync(linkedTokenSource.Token);
                 await _eventPublisherl.PublishAsync(new ExecutionStartedEvent() { ExecutionId = execution.Id, UserId = message.UserId });
@@ -438,7 +627,7 @@ public class ExecutionService : BackgroundService
                     OracleDataReader reader = ((OracleRefCursor)command.Parameters[param.ParameterName].Value).GetDataReader();
                     // Process the ref cursor as needed
                     _logger.LogInformation($"Output Parameter {param.ParameterName} is a RefCursor with {reader.FieldCount} fields.");
-                    string filePath = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
+                    string filePath = await SaveOracleDataReaderToExcelxml(reader, message, linkedTokenSource.Token);
 
                     await reader.CloseAsync();
                     if (!string.IsNullOrWhiteSpace(filePath)) outfilesList.Add(filePath);

@@ -54,6 +54,7 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
         modelBuilder.Entity<Execution>().Property(r=>r.ExecutionParameters).HasConversion(
         v=>JsonSerializer.Serialize(v, jsonOptions),
         v=>JsonSerializer.Deserialize<List<ExecutionParameter>>(v, jsonOptions)?? new List<ExecutionParameter>()
+        //v=>JsonSerializer.Deserialize<List<ScheduledJobParameter>>(v, jsonOptions)?? new List<ScheduledJobParameter>()
        )
        .Metadata.SetValueComparer(execComparer);
        ValueComparer scheduledJobComparer=new ValueComparer<List<ScheduledJobParameter>>(

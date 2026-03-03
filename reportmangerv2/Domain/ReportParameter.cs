@@ -16,10 +16,11 @@ public class ReportParameter
     public ViewControl ViewControl {get;set;}=ViewControl.TextBox;
 
     public string? DefaultValue {get;set;}
-    //greater than 0 data anotation
     [Range(1, int.MaxValue)]
     public int Position {get;set;}
     public bool IsRequired {get;set;}
+    public string? DependsOn {get;set;}
+    public string? DependencyQuery {get;set;}
     [ForeignKey("ReportId")]
     public string ReportId {get;set;}
     public Report Report {get;set;}

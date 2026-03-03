@@ -1,6 +1,5 @@
 let extractedParameters = [];
 
-// Toast notification functions
 function showErrorToast(message) {
     document.getElementById('errorMessage').textContent = message;
     const toast = new bootstrap.Toast(document.getElementById('errorToast'));
@@ -13,7 +12,6 @@ function showSuccessToast(message) {
     toast.show();
 }
 
-// Extract parameters from SQL query
 function extractParametersFromQuery(query) {
     const paramRegex = /:(\w+)/g;
     const params = [];
@@ -34,7 +32,6 @@ function extractParametersFromQuery(query) {
     return params;
 }
 
-// Display parameters for configuration
 function displayParameters(parameters) {
     const parametersList = document.getElementById('parametersList');
     const parametersSection = document.getElementById('parametersSection');
@@ -76,6 +73,19 @@ function displayParameters(parameters) {
                                 </select>
                             </div>
                             
+                            <div class="mb-2 param-datasource-section" data-index="${index}" style="display:none;">
+                                <label class="form-label fw-semibold">Data Source Query <span class="text-danger">*</span></label>
+                                <textarea class="form-control param-datasource" data-index="${index}" rows="2" placeholder="SELECT id, name, parent_id FROM table"></textarea>
+                                <small class="text-muted">Query returns: value, text, parent_column (optional for cascading)</small>
+                            </div>
+                            
+                            <div class="mb-2 param-depends-section" data-index="${index}" style="display:none;">
+                                <label class="form-label fw-semibold">Depends On</label>
+                                <select class="form-control param-dependson" data-index="${index}">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
+                            
                             <div class="mb-2">
                                 <label class="form-label fw-semibold">Default Value</label>
                                 <input type="text" class="form-control param-default" data-index="${index}" placeholder="Default value">
@@ -94,12 +104,50 @@ function displayParameters(parameters) {
         });
         html += '</div>';
         parametersList.innerHTML = html;
+        
+        document.querySelectorAll('.param-viewcontrol').forEach(select => {
+            select.addEventListener('change', function() {
+                const index = this.getAttribute('data-index');
+                const datasourceSection = document.querySelector(`.param-datasource-section[data-index="${index}"]`);
+                const dependsSection = document.querySelector(`.param-depends-section[data-index="${index}"]`);
+                
+                if (this.value === 'Select') {
+                    datasourceSection.style.display = 'block';
+                    dependsSection.style.display = 'block';
+                    updateDependsOnOptions();
+                } else {
+                    datasourceSection.style.display = 'none';
+                    dependsSection.style.display = 'none';
+                }
+            });
+        });
     }
     
     parametersSection.style.display = 'block';
 }
 
-// Load parameters button click
+function updateDependsOnOptions() {
+    const allParams = [];
+    document.querySelectorAll('.param-viewcontrol').forEach((select, idx) => {
+        const paramName = extractedParameters[idx].name;
+        allParams.push({ index: idx, name: paramName, viewControl: select.value });
+    });
+    
+    document.querySelectorAll('.param-dependson').forEach(select => {
+        const currentIndex = parseInt(select.getAttribute('data-index'));
+        const currentViewControl = document.querySelector(`.param-viewcontrol[data-index="${currentIndex}"]`).value;
+        
+        if (currentViewControl === 'Select') {
+            const options = '<option value="">-- None --</option>' + 
+                allParams
+                    .filter(p => p.index < currentIndex && p.viewControl === 'Select')
+                    .map(p => `<option value="${p.name}">${p.name}</option>`)
+                    .join('');
+            select.innerHTML = options;
+        }
+    });
+}
+
 document.getElementById('loadParametersBtn').addEventListener('click', function() {
     const query = document.getElementById('ReportQuery').value.trim();
     
@@ -119,17 +167,14 @@ document.getElementById('loadParametersBtn').addEventListener('click', function(
     showSuccessToast(`Found ${extractedParameters.length} parameter(s)`);
 });
 
-// Form submission
 document.getElementById('createReportForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    // Validate that parameters are loaded
     if (extractedParameters.length > 0 && document.getElementById('parametersSection').style.display === 'none') {
         showErrorToast('Please load parameters first');
         return;
     }
     
-    // Collect parameter configurations
     const parameters = [];
     extractedParameters.forEach((param, index) => {
         const type = document.querySelector(`.param-type[data-index="${index}"]`).value;
@@ -138,6 +183,8 @@ document.getElementById('createReportForm').addEventListener('submit', async fun
         const defaultValue = document.querySelector(`.param-default[data-index="${index}"]`).value;
         const isRequired = document.querySelector(`.param-required[data-index="${index}"]`).checked;
         const position = parseInt(document.querySelector(`.param-position[data-index="${index}"]`).value);
+        const dependsOn = document.querySelector(`.param-dependson[data-index="${index}"]`)?.value || null;
+        const dependencyQuery = document.querySelector(`.param-datasource[data-index="${index}"]`)?.value || null;
         
         parameters.push({
             Name: param.name,
@@ -146,7 +193,9 @@ document.getElementById('createReportForm').addEventListener('submit', async fun
             ViewControl: viewControl,
             DefaultValue: defaultValue || null,
             IsRequired: isRequired,
-            Position: position
+            Position: position,
+            DependsOn: dependsOn,
+            DependencyQuery: dependencyQuery
         });
     });
     
