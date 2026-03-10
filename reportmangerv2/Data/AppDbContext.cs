@@ -85,7 +85,7 @@ public class AppDbContext: IdentityDbContext<ApplicationUser>
                  .OnDelete(DeleteBehavior.Cascade);
                  entity.Property(rp=>rp.Type).HasConversion<string>();
                  entity.Property(e=>e.ViewControl).HasConversion<string>();
-           
+        entity.Property(e=>e.DefaultValue).HasColumnType("CLOB");
        });
        modelBuilder.Entity<Execution>(entity =>
        {

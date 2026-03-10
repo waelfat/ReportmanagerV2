@@ -41,6 +41,7 @@ function displayParameters(parameters) {
     } else {
         let html = '<div class="row g-3">';
         parameters.forEach((param, index) => {
+            const existing = param.existing || {};
             html += `
                 <div class="col-md-6">
                     <div class="card border-primary border-opacity-25">
@@ -49,37 +50,37 @@ function displayParameters(parameters) {
                             
                             <div class="mb-2">
                                 <label class="form-label fw-semibold">Description</label>
-                                <input type="text" class="form-control param-description" data-index="${index}" placeholder="Parameter description">
+                                <input type="text" class="form-control param-description" data-index="${index}" value="${existing.description || ''}" placeholder="Parameter description">
                             </div>
                             
                             <div class="mb-2">
                                 <label class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
                                 <select class="form-control param-type" data-index="${index}" required>
-                                    <option value="Varchar2">Varchar2</option>
-                                    <option value="Decimal">Number</option>
-                                    <option value="Date">Date</option>
-                                    <option value="TimeStamp">TimeStamp</option>
-                                    <option value="Clob">Clob</option>
+                                    <option value="Varchar2" ${existing.type === 'Varchar2' ? 'selected' : ''}>Varchar2</option>
+                                    <option value="Decimal" ${existing.type === 'Decimal' ? 'selected' : ''}>Number</option>
+                                    <option value="Date" ${existing.type === 'Date' ? 'selected' : ''}>Date</option>
+                                    <option value="TimeStamp" ${existing.type === 'TimeStamp' ? 'selected' : ''}>TimeStamp</option>
+                                    <option value="Clob" ${existing.type === 'Clob' ? 'selected' : ''}>Clob</option>
                                 </select>
                             </div>
                             
                             <div class="mb-2">
                                 <label class="form-label fw-semibold">View Control <span class="text-danger">*</span></label>
                                 <select class="form-control param-viewcontrol" data-index="${index}" required>
-                                    <option value="TextBox">TextBox</option>
-                                    <option value="Select">Select</option>
-                                    <option value="CheckBox">CheckBox</option>
-                                    <option value="Date">Date</option>
+                                    <option value="TextBox" ${existing.viewControl === 'TextBox' ? 'selected' : ''}>TextBox</option>
+                                    <option value="Select" ${existing.viewControl === 'Select' ? 'selected' : ''}>Select</option>
+                                    <option value="CheckBox" ${existing.viewControl === 'CheckBox' ? 'selected' : ''}>CheckBox</option>
+                                    <option value="Date" ${existing.viewControl === 'Date' ? 'selected' : ''}>Date</option>
                                 </select>
                             </div>
                             
-                            <div class="mb-2 param-datasource-section" data-index="${index}" style="display:none;">
+                            <div class="mb-2 param-datasource-section" data-index="${index}" style="display:${existing.viewControl === 'Select' ? 'block' : 'none'};">
                                 <label class="form-label fw-semibold">Data Source Query <span class="text-danger">*</span></label>
-                                <textarea class="form-control param-datasource" data-index="${index}" rows="2" placeholder="SELECT id, name, parent_id FROM table"></textarea>
+                                <textarea class="form-control param-datasource" data-index="${index}" rows="2" placeholder="SELECT id, name, parent_id FROM table">${existing.dependencyQuery || ''}</textarea>
                                 <small class="text-muted">Query returns: value, text, parent_column (optional for cascading)</small>
                             </div>
                             
-                            <div class="mb-2 param-depends-section" data-index="${index}" style="display:none;">
+                            <div class="mb-2 param-depends-section" data-index="${index}" style="display:${existing.viewControl === 'Select' ? 'block' : 'none'};">
                                 <label class="form-label fw-semibold">Depends On</label>
                                 <select class="form-control param-dependson" data-index="${index}">
                                     <option value="">-- None --</option>
@@ -88,15 +89,18 @@ function displayParameters(parameters) {
                             
                             <div class="mb-2">
                                 <label class="form-label fw-semibold">Default Value</label>
-                                <input type="text" class="form-control param-default" data-index="${index}" placeholder="Default value">
+                                <input type="text" class="form-control param-default" data-index="${index}" value="${existing.defaultValue || ''}" placeholder="Default value">
+                            </div>
+                            
+                            <div class="mb-2">
+                                <label class="form-label fw-semibold">Position <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control param-position" data-index="${index}" value="${param.position}" min="1" required>
                             </div>
                             
                             <div class="form-check">
-                                <input class="form-check-input param-required" type="checkbox" data-index="${index}" checked>
+                                <input class="form-check-input param-required" type="checkbox" data-index="${index}" ${existing.isRequired !== false ? 'checked' : ''}>
                                 <label class="form-check-label">Required</label>
                             </div>
-                            
-                            <input type="hidden" class="param-position" data-index="${index}" value="${param.position}">
                         </div>
                     </div>
                 </div>
@@ -120,6 +124,16 @@ function displayParameters(parameters) {
                     dependsSection.style.display = 'none';
                 }
             });
+        });
+        
+        updateDependsOnOptions();
+        
+        // Restore dependsOn values
+        parameters.forEach((param, index) => {
+            if (param.existing?.dependsOn) {
+                const select = document.querySelector(`.param-dependson[data-index="${index}"]`);
+                if (select) select.value = param.existing.dependsOn;
+            }
         });
     }
     
@@ -156,12 +170,38 @@ document.getElementById('loadParametersBtn').addEventListener('click', function(
         return;
     }
     
+    // Save existing parameter values
+    const existingParams = {};
+    document.querySelectorAll('#parametersList .card').forEach(card => {
+        const name = card.querySelector('.param-name')?.value;
+        if (name) {
+            existingParams[name] = {
+                description: card.querySelector('.param-description')?.value || '',
+                type: card.querySelector('.param-type')?.value || 'Varchar2',
+                viewControl: card.querySelector('.param-viewcontrol')?.value || 'TextBox',
+                defaultValue: card.querySelector('.param-default')?.value || '',
+                isRequired: card.querySelector('.param-required')?.checked ?? true,
+                position: parseInt(card.querySelector('.param-position')?.value) || 0,
+                dependsOn: card.querySelector('.param-dependson')?.value || '',
+                dependencyQuery: card.querySelector('.param-datasource')?.value || ''
+            };
+        }
+    });
+    
     extractedParameters = extractParametersFromQuery(query);
     
     if (extractedParameters.length === 0) {
         showErrorToast('No parameters found in the query. Use :parameterName syntax.');
         return;
     }
+    
+    // Merge existing values with new parameters
+    extractedParameters.forEach((param, index) => {
+        if (existingParams[param.name]) {
+            param.existing = existingParams[param.name];
+        }
+        param.position = index + 1;
+    });
     
     displayParameters(extractedParameters);
     showSuccessToast(`Found ${extractedParameters.length} parameter(s)`);

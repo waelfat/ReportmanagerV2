@@ -6,8 +6,10 @@ using System.Threading.Channels;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.CodeAnalysis.Options;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Options;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using reportmangerv2.Data;
@@ -28,13 +30,15 @@ public class ExecutionService : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly IEmailSender _emailSender;
     private readonly IEventPublisher _eventPublisherl;
+    private readonly ReportManagerSettings _settings;
     public ExecutionService(Channel<ExecutionRequest> channel, ILogger<ExecutionService> logger,
     CurrentActiveExecutionsService currentActiveExecutionsService,
     IServiceScopeFactory serviceScopeFactory,
     IWebHostEnvironment webHostEnvironment,
     IEmailSender emailSender,
     IConfiguration configuration,
-    IEventPublisher eventPublisher
+    IEventPublisher eventPublisher,
+    IOptions<ReportManagerSettings> option
     )
     {
         _channel = channel;
@@ -45,6 +49,7 @@ public class ExecutionService : BackgroundService
         _configuration = configuration;
         _emailSender = emailSender;
         _eventPublisherl = eventPublisher;
+        _settings = option.Value;
 
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -108,6 +113,7 @@ public class ExecutionService : BackgroundService
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
                 // Here you would add the logic to execute the report based on the message details
                 // For example, fetch the report details from the database
 
@@ -157,10 +163,17 @@ public class ExecutionService : BackgroundService
             OracleConnection connection = new(message.ConnectionString);
             //start execting with params 
             _logger.LogInformation($"Executing SQL statement for report {message.ReportTitle} with Execution ID {executionId}. params: {string.Join(",",executionParameters.Select(p=>p.ParameterName + ":" + p.Value))}");
+             var baseFile   = $"report_{message.ReportTitle}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
             OracleDataReader reader = await ExecuteReportSQLStatement(message.SQLStatement, connection, executionParameters, linkedTokenSource.Token);
+          (string filePath,long count) result;
+           using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var xlsxwriter=scope.ServiceProvider.GetRequiredService<IXlsxWriterService>();
+            //var filePathFinal = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
+                result=await xlsxwriter.WriteQueryAsync(reader,_settings.OutputDirectory,baseFile,linkedTokenSource.Token);
+            }
+            
 
-
-            var filePathFinal = await SaveOracleDataReaderToExcel(reader, message, linkedTokenSource.Token);
             #region previouscode
 
             #endregion
@@ -224,7 +237,7 @@ public class ExecutionService : BackgroundService
                 ExecutionId = executionId,
                 ExecutionStatus = ExecutionStatus.Completed,
                 IsSuccessful = true,
-                ResultFilePaths = filePathFinal,
+                ResultFilePaths = result.filePath,
                 ErrorMessage = string.Empty,
                 UserId = message.UserId
             };

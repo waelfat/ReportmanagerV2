@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using reportmangerv2.Services;
 using Oracle.ManagedDataAccess.Client;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.CodeAnalysis.Options;
+using Microsoft.Extensions.Options;
 
 namespace reportmangerv2.Controllers;
 [Authorize (Roles ="Admin")]
@@ -18,11 +20,19 @@ public class ReportController : Controller
     private readonly AppDbContext _context;
     private readonly ReportService _reportService;
     private readonly ILogger<ReportController> _logger;
-    public ReportController(AppDbContext context, ILogger<ReportController> logger, ReportService reportService)
+    private readonly IWebHostEnvironment _env;
+    // options settings
+
+    public ReportController(AppDbContext context, ILogger<ReportController> logger, ReportService reportService,
+    IWebHostEnvironment env
+  
+    )
     {
         _context = context;
         _logger = logger;
         _reportService = reportService;
+        _env = env;
+    
 
     }
     [HttpGet]
@@ -98,6 +108,17 @@ ORDER SIBLINGS BY c.name";
         {
             var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage));
             return BadRequest(string.Join(", ", errors));
+        }
+
+        // Validate positions are unique and sequential
+        var positions = model.Parameters.Select(p => p.Position).OrderBy(p => p).ToList();
+        if (positions.Count != positions.Distinct().Count())
+        {
+            return BadRequest("Parameter positions must be unique");
+        }
+        if (positions.Any() && (positions.First() != 1 || positions.Last() != positions.Count))
+        {
+            return BadRequest("Parameter positions must be sequential starting from 1");
         }
 
         try
@@ -249,6 +270,17 @@ ORDER SIBLINGS BY c.name";
             return BadRequest(string.Join(", ", errors));
         }
         
+        // Validate positions are unique and sequential
+        var positions = model.Parameters.Select(p => p.Position).OrderBy(p => p).ToList();
+        if (positions.Count != positions.Distinct().Count())
+        {
+            return BadRequest("Parameter positions must be unique");
+        }
+        if (positions.Any() && (positions.First() != 1 || positions.Last() != positions.Count))
+        {
+            return BadRequest("Parameter positions must be sequential starting from 1");
+        }
+        
         try
         {
             var report = await _context.Reports
@@ -386,12 +418,20 @@ ORDER SIBLINGS BY c.name";
     {
         var exec = await _context.Executions.FindAsync(id);
         if (exec == null) return NotFound();
-        if (string.IsNullOrEmpty(exec.ResultFilePath) || !System.IO.File.Exists(exec.ResultFilePath)) return NotFound();
+        if (exec.ExecutionStatus != ExecutionStatus.Completed) return NotFound();
+        if (exec.ExecutionDate < DateTime.Now.AddDays(-7)) return NotFound();
+        if (string.IsNullOrEmpty(exec.ResultFilePath)) return NotFound();
+        var absultepath= Path.Combine(_env.ContentRootPath, exec.ResultFilePath);
+
+        //E:\projects\dotnetprojects\vscodeprojects\reportmanagerv2\reportmangerv2\wwwroot\Reports\report_Monthly Financial Report_20260306_232739.xlsx
+        
+        if (!System.IO.File.Exists(absultepath)) return NotFound();
         var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
-        var contentType = provider.TryGetContentType(exec.ResultFilePath, out var ct) ? ct : "application/octet-stream";
-        return PhysicalFile(exec.ResultFilePath, contentType,
-         Path.GetFileName(exec.ResultFilePath).Contains("_") ? Path.GetFileName(exec.ResultFilePath).Split("_")[0] :
- Path.GetFileName(exec.ResultFilePath));
+        var contentType = provider.TryGetContentType(absultepath, out var ct) ? ct : "application/octet-stream";
+        return PhysicalFile(absultepath, contentType,
+            Path.GetFileName(absultepath)
+        
+        );
     }
 
 }

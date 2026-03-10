@@ -43,6 +43,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options=> options.Si
         options.AccessDeniedPath = "/Auth/AccessDenied";
         options.SlidingExpiration = true;
     });
+    
     builder.Services.AddScoped<ReportService>();
     builder.Services.Configure<MailSettings>(builder.Configuration.GetSection("MailSettings"));
     builder.Services.AddTransient<IEmailSender, EmailSender>();
@@ -53,6 +54,8 @@ builder.Services.AddSingleton<IEventPublisher,EventPublisher>();
 builder.Services.AddScoped<IEventHandler<ExecutionCompletedEvent>,ExecutionCompletedEventHandler>();
 builder.Services.AddScoped<IEventHandler<ExecutionStartedEvent>,ExecutionStartedEventHandler>();
 builder.Services.AddScoped<IEventHandler<ReportProgressEvent>,ReportProgressEventHandler>();
+builder.Services.AddScoped<IXlsxWriterService,XlsxWriterService>();
+
 // builder.Services.AddScoped<IEventHandler<ExecutionCancelEvent>,ExecutionCancelEventHandler>();
 
 builder.Services.AddSingleton<CurrentActiveExecutionsService>();

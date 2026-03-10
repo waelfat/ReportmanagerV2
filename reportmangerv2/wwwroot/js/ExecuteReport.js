@@ -131,7 +131,7 @@ $(function () {
         if (!cronExpression) {
             alert('Please select a date and time first');
             return;
-        }
+    }
         
         // Collect parameters from the form
         const parameters = [];
